@@ -2,28 +2,26 @@
     Manage FIAFMO experiences
 """
 
-
 import os
-import math
 import sys
-import pickle
 import argparse
-import warnings
 import logging as log
-from time import localtime, strftime, time
+from time import localtime, strftime
 
 import numpy as np
-from sklearn.svm import SVC
-from sklearn.svm import LinearSVC as SVM
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.linear_model import LogisticRegression as LogiReg
 
-from . import cone
-from . import baselines
-from . import parambath
+sys.path.insert(0, os.path.dirname(os.getcwd()))
+from FIAFMO import cone, baselines, parambath
 
 def experience(argv):
-    results_path += "/"+strftime("%d%m%Y_%H%M", localtime())+"_"+algo
+    """ Hanlde exeperience corresponding to options """
+
+    dataset = np.load(argv.dataset)['dataset'].item()
+    dataset_name = os.path.basename(argv.dataset).replace(".npz", "")
+
+    algo = get_algo(argv)
+
+    results_path = argv.log_dir+"/"+strftime("%d%m%Y_%H%M", localtime())+"_"+argv.algo+"/"
 
     try:
         os.makedirs(results_path)
@@ -31,48 +29,74 @@ def experience(argv):
         # problem when several fold are launched at the same time
         pass
 
+    for fold_i in argv.fold_grid:
+        log.info("Algo %s, Dataset %s fold #%d", argv.algo, dataset_name, fold_i)
 
-    #load dataset
-    #get algo params
-    #save 1 log/fold
-    #option to avoid keep predictions
+        results = {}
+        for c_val in argv.C_grid:
+            log.info("\t C=%f"%c_val)
 
+
+            if argv.save_states:
+                states_path = results_path+"/states_fold%d/c%f"%(fold_i, c_val)
+                os.makedirs(states_path)
+                argv.save_states = states_path
+
+            results[c_val] = algo.run_algo(dataset["fold%d"%fold_i], dataset["nb_class"], c_val, argv)
+
+            if not argv.save_predictions:
+                del results[c_val]["predictions"]
+
+            log.debug(results[c_val])
+
+        np.save(results_path+"%s_%s_%s_fold%d.npy"%(argv.algo, argv.classif, dataset_name, fold_i),
+                results)
+
+def get_algo(argv):
+    """ get algorithm module """
+
+    if argv.algo.lower() == "cone":
+        return cone
+
+    if argv.algo.lower() == "parambath":
+        return parambath
+
+    if argv.algo.lower() == "baseline" or argv.algo.lower() == "i.r.":
+        return baselines
+
+    log.error("Unknown algorithm %s. Algo available: cone, parambath, baseline, i.r.", argv.algo)
+    sys.exit(0)
 
 if __name__ == "__main__":
     log.basicConfig(stream=sys.stdout, level=log.DEBUG)
     PARSER = argparse.ArgumentParser()
 
     PARSER.add_argument("--dataset", help="Dataset file", type=str, required=True)
-    PARSER.add_argument("--C", help="Tested C, -1 to use {2^-6, 2^-5, ..., 2^6}", type=float, required=True)
     PARSER.add_argument("--log_dir", help="Logs directory", type=str, required=True)
-    PARSER.add_argument("--nb_cones", help="Maximum number of cones", type=int, required=True)
-    PARSER.add_argument("--beta", help="Beta of F-Measure", type=float, required=True)
-    PARSER.add_argument("--fold", help="Tested fold, -1 to use [0, 1, ..., 5]", type=int, required=True)
-    PARSER.add_argument("--classif", help="Classifier (logireg|liblinear|rbf|randforest)", type=str,
-                        required=True)
-    PARSER.add_argument("--algo", help="",
-                        type=str, required=True)
-    PARSER.add_argument("--max_iter", help="maximum number of training iteration",
-                        type=int, required=True)
-    PARSER.add_argument("--intercept", help="Fit the intercept of classifier",
-                        type=float, required=True)
-    PARSER.add_argument("--nb_class", help="Number of classes", type=int, required=True)
-    PARSER.add_argument("--cone_subset", type=str, required=True,
-                        help="subset of dataset used to draw cones (train|valid|test)")
-    PARSER.add_argument("--strategy", type=str, required=True,
-                        help="Strategy used to find next cone (middle|left)")
-    PARSER.add_argument("--tmin", help="smallest t in grid", type=float, required=True)
-    PARSER.add_argument("--tmax", help="highest t in grid", type=float, required=True)
+    PARSER.add_argument("--algo", help="(cone|parambath|baseline|i.r.)", type=str, required=True)
 
-    PARSER.add_argument("--save_states", action='store_true', help="Save all intermediate states")
-    PARSER.add_argument("--save_models", action='store_true', help="Save all intermediate models")
-    PARSER.add_argument("--save_predictions", action='store_true', help="Save all predictions")
+    # not required options
+    PARSER.add_argument("--C_grid", help="Tested C", metavar="C",
+                        type=float, nargs="+", default=[2**exp for exp in range(-6, 7)])
+    PARSER.add_argument("--fold_grid", help="Tested folds", metavar="FOLD",
+                        type=int, nargs="+", default=list(range(5)))
+    PARSER.add_argument("--max_step", help="Maximum number of trained classifiers",
+                        type=int, default=19)
+    PARSER.add_argument("--classif", help="Classifier (logi_reg|linear_svm|SVC_(linear|poly|rbf|sigmoid)|random_forest)",
+                        type=str, default="linear_svm")
+    PARSER.add_argument("--save_predictions", action='store_true',
+                        help="Save all predictions (required for thresholding, warning: results from large dataset can be heavy)")
 
-    PARSER.add_argument("--feat_type", type=str, default="none",
-                        help="If dataset of features, give their type (ImageNet|trained)")
-    PARSER.add_argument("--feat_norm", type=str, default="none",
-                        help="If dataset of features, set a normalization (minmax|std|none)")
+    # algo-specific options
+    PARSER.add_argument("--tmin", help="if algo is cone or parambath: inf bound of t space",
+                        type=float, default=0)
+    PARSER.add_argument("--tmax", help="if algo is cone or parambath: sup bound of t space",
+                        type=float, default=1)
+    PARSER.add_argument("--beta", help="if algo is cone or parambath: beta used in class weight computation",
+                        type=float, default=1.0)
+    PARSER.add_argument("--strategy", type=str, default="middle_cones",
+                        help="if algo is cone: strategy for cone selection (left|right|middle_space|middle_cones)")
+    PARSER.add_argument("--save_states", help="if algo is cone: Save all intermediate states as png",
+                        action='store_true')
 
     experience(PARSER.parse_args())
-
-

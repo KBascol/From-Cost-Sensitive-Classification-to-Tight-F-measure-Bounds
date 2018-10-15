@@ -6,100 +6,110 @@ import logging as log
 from time import time
 
 import numpy as np
+import skimage.io
+import skimage.transform
 from scipy.optimize import fmin_cobyla
 
 from . import utils
 from . import classifier
-from .manage_state import state_to_png
 
+STATE_SIZE = 1000
 
-def run_algo(data, classif_opt, algo_opt):
+def run_algo(data, nb_class, c_val, argv):
     """ Use CONE algorithm on given options """
 
     timer = time()
 
-    outputs = {"confusions": {"train": np.zeros((algo_opt["max_step"], data["nb_class"], data["nb_class"])),
-                              "valid": np.zeros((algo_opt["max_step"], data["nb_class"], data["nb_class"])),
-                              "test": np.zeros((algo_opt["max_step"], data["nb_class"], data["nb_class"]))},
-               "predictions": {"train": np.zeros((algo_opt["max_step"], data["train"].shape[0], data["nb_class"])),
-                               "valid": np.zeros((algo_opt["max_step"], data["valid"].shape[0], data["nb_class"])),
-                               "test": np.zeros((algo_opt["max_step"], data["test"].shape[0], data["nb_class"]))},
-               "t_values": np.full(algo_opt["max_step"], -1)}
+    outputs = {"confusions": {"train": np.zeros((argv.max_step, nb_class, nb_class), dtype=int),
+                              "valid": np.zeros((argv.max_step, nb_class, nb_class), dtype=int),
+                              "test": np.zeros((argv.max_step, nb_class, nb_class), dtype=int)},
+               "predictions": {"train": np.zeros((argv.max_step, data["train"]["labels"].shape[0], nb_class), dtype=int),
+                               "valid": np.zeros((argv.max_step, data["valid"]["labels"].shape[0], nb_class), dtype=int),
+                               "test": np.zeros((argv.max_step, data["test"]["labels"].shape[0], nb_class), dtype=int)},
+               "t_values": np.full(argv.max_step, -1, dtype=np.float32)}
 
     conf_mats = outputs["confusions"]
     preds = outputs["predictions"]
 
-    log.info("CONE %s", str(classif_opt))
-
-    best = [0, 0, None]
-    next_t_val = (algo_opt["tmin"]+algo_opt["tmax"])/2
+    best_fm = 0
+    next_t_val = (argv.tmin+argv.tmax)/2
+    print((argv.tmin, argv.tmax, next_t_val))
     max_fm = 1
 
     step = 0
 
-    state = np.ones((10000, 10000))
+    state = np.ones((STATE_SIZE, STATE_SIZE))
 
-    log.info("\t\tinitialization time: %f", time()-timer)
+    log.debug("\t\tinitialization time: %f", time()-timer)
 
-    while max_fm >= best[0] and step < algo_opt["max_step"]:
+    while max_fm >= best_fm and step < argv.max_step:
+        print(outputs["t_values"])
         timer = time()
 
         log.debug("compute weights...")
 
         outputs["t_values"][step] = next_t_val
-        class_w = compute_weights(outputs["t_values"][step], data["nb_class"], algo_opt["beta"])
+        class_w = compute_weights(outputs["t_values"][step], nb_class, argv.beta)
 
         log.debug("initialize classifier...")
 
-        classif = classifier.get_classifier(classif_opt, class_w)
+        classif = classifier.get_classifier(argv, c_val, class_w)
 
         log.debug("fit classifier...")
         timer_train = time()
 
         classif.fit(data["train"]["exemples"], data["train"]["labels"])
 
-        log.info("\t\t\ttrain time: %f", time()-timer_train)
+        log.debug("\t\t\ttrain time: %f", time()-timer_train)
 
         log.debug("test classifier...")
         timer_test = time()
 
         for subset in ["train", "valid", "test"]:
-            out_iter = classifier.get_confusion(data, subset, classif)
-            conf_mats[subset][step], preds[subset][step] = out_iter
+            out_iter = classifier.get_confusion(data, nb_class, subset, classif)
 
-        log.info("\t\t\ttest time: %f", time()-timer_test)
+            if nb_class == 2:
+                saved_outs = preds[subset][step][:, 0]
+            else:
+                saved_outs = preds[subset][step]
+
+            conf_mats[subset][step], saved_outs = out_iter
+
+        log.debug("\t\t\ttest time: %f", time()-timer_test)
 
         timer_cone = time()
         log.debug("select next cone...")
 
-        curr_fm = add_cone(state, conf_mats["train"][step], outputs["t_values"][step], algo_opt)
+        curr_fm = add_cone(state, conf_mats["train"][step], outputs["t_values"][step], argv)
+        print(state.min())
 
-        log.info("\t\t\tdrawing cone time: %f", time()-timer_cone)
+        log.debug("\t\t\tdrawing cone time: %f", time()-timer_cone)
 
-        if curr_fm > best[0]:
-            best = [curr_fm, outputs["t_values"][step], classif]
+        if curr_fm > best_fm:
+            best_fm = curr_fm
 
         timer_fm = time()
-        next_t_val, max_fm = get_best_fm_available(state, algo_opt["strategy"],
-                                                   t_vals=outputs["t_values"][:step+1])
-        log.info("\t\t\tfind next cone time: %f", time()-timer_fm)
-        log.info("t: %.5f fm: %.5f next t: %.5f max fm: %.5f",
+
+        next_t_val, max_fm = get_best_fm_available(state, argv, t_vals=outputs["t_values"][:step+1])
+
+        log.debug("\t\t\tfind next cone time: %f", time()-timer_fm)
+        log.debug("t: %.5f fm: %.5f next t: %.5f max fm: %.5f",
                  outputs["t_values"][step], curr_fm, next_t_val, max_fm)
 
-        if algo_opt["save_states"]:
-            state_to_png(state, algo_opt["save_states"], step)
+        if argv.save_states:
+            state_to_png(state, argv.save_states, step)
 
         step += 1
 
-        log.info("\t\tstep %d time: %f", step, time()-timer)
+        log.debug("\t\tstep %d time: %f", step, time()-timer)
 
     return outputs
 
-def get_best_fm_available(state, algo_opt, t_vals=None):
+def get_best_fm_available(state, argv, t_vals=None):
     """ search for the next CONE step """
 
     # search position of next best fmeasure in state
-    fm_pos = np.where(state.sum(axis=1) > -100000000)[0]
+    fm_pos = np.where(state.sum(axis=1) > -STATE_SIZE**2)[0]
     if fm_pos.shape[0] == 0:
         log.error("no more cone possible....")
         return -1, -1
@@ -112,15 +122,15 @@ def get_best_fm_available(state, algo_opt, t_vals=None):
     if t_pos.shape[0] == 0:
         # if no position, use 0
 
-        t_val = utils.linspace_value(algo_opt["tmin"], algo_opt["tmax"], 10000, 0)
-    if t_pos.shape[0] == 1 or algo_opt["strategy"] == "left":
+        t_val = utils.linspace_value(argv.tmin, argv.tmax, STATE_SIZE, 0)
+    if t_pos.shape[0] == 1 or argv.strategy == "left":
         # if one position or stategy i to take first t from the left
 
-        t_val = utils.linspace_value(algo_opt["tmin"], algo_opt["tmax"], 10000, t_pos[0])
-    elif algo_opt["strategy"] == "right":
+        t_val = utils.linspace_value(argv.tmin, argv.tmax, STATE_SIZE, t_pos[0])
+    elif argv.strategy == "right":
         # if  stategy i to take first t from the right
 
-        t_val = utils.linspace_value(algo_opt["tmin"], algo_opt["tmax"], 10000, t_pos[-1])
+        t_val = utils.linspace_value(argv.tmin, argv.tmax, STATE_SIZE, t_pos[-1])
     else:
         # search for the highest longest allowed zone
 
@@ -136,19 +146,19 @@ def get_best_fm_available(state, algo_opt, t_vals=None):
                 max_end_i = point_i+1
 
             max_so_far = max(max_so_far, max_end)
-        t_val = utils.linspace_value(algo_opt["tmin"], algo_opt["tmax"], 10000,
+        t_val = utils.linspace_value(argv.tmin, argv.tmax, STATE_SIZE,
                                      int(max_end_i-max_so_far//2))
 
-    if t_vals is not None and algo_opt["strategy"] == "middle_prev":
+    if t_vals is not None and argv.strategy == "middle_cones":
         # if strategy is to take the middle of the nearest higher and lower previous t
 
-        prevt_l = t_vals[t_vals < t_val]
+        prevt_l = t_vals[t_vals < t_val].copy()
         if prevt_l.shape[0] == 0:
             prevt_l = 0
         else:
             prevt_l = np.max(prevt_l)
 
-        prevt_r = t_vals[t_vals > t_val]
+        prevt_r = t_vals[t_vals > t_val].copy()
         if prevt_r.shape[0] == 0:
             prevt_r = 1
         else:
@@ -156,20 +166,20 @@ def get_best_fm_available(state, algo_opt, t_vals=None):
 
         t_val = (prevt_l+prevt_r)/2
 
-    return t_val, utils.linspace_value(1, 0, 10000, fm_pos)
+    return t_val, utils.linspace_value(1, 0, STATE_SIZE, fm_pos)
 
-def add_cone(state, conf_mat, t_val, algo_opt):
+def add_cone(state, conf_mat, t_val, argv):
     """ add CONE step on state """
 
-    x_cone = np.linspace(algo_opt["tmin"], algo_opt["tmax"], 10000)
-    y_cone = np.linspace(1, 0, 10000)
+    x_cone = np.linspace(argv.tmin, argv.tmax, STATE_SIZE)
+    y_cone = np.linspace(1, 0, STATE_SIZE)
 
-    curr_fm = utils.micro_fmeasure(conf_mat, algo_opt["beta"])
+    curr_fm = utils.micro_fmeasure(conf_mat, argv.beta)
 
     if conf_mat.shape[0] == 2:
-        slopel, sloper = bin_slope(conf_mat, algo_opt["beta"])
+        slopel, sloper = bin_slope(conf_mat, argv.beta)
     else:
-        slopel, sloper = mclass_slope(conf_mat, algo_opt["beta"])
+        slopel, sloper = mclass_slope(conf_mat, argv.beta)
 
     offsetl = curr_fm-slopel*t_val
     offsetr = curr_fm-sloper*t_val
@@ -181,10 +191,10 @@ def add_cone(state, conf_mat, t_val, algo_opt):
     log.info("\t\t\t\ttimer meshgrid: %f", time()-timer)
 
     timer = time()
-    state[np.logical_and(sup_linel, sup_liner)] = -10000
+    state[np.logical_and(sup_linel, sup_liner)] = -STATE_SIZE
     log.info("\t\t\t\ttimer draw: %f", time()-timer)
 
-    return curr_fm, state
+    return curr_fm
 
 def bin_slope(conf_mat, beta=1):
     """ get CONE slope from confusion matrix for binary problem """
@@ -259,3 +269,21 @@ def compute_weights(t_value, nb_class, beta=1.0):
     weights[0] = t_value
 
     return weights
+
+def state_to_png(state, dir_path, cone_i=None):
+    """ get an image from a state """
+
+    if cone_i is None:
+        cones = range(5)
+    else:
+        cones = [cone_i]
+
+    for cone in cones:
+        if isinstance(state, str):
+            state_mat = np.load(state).item()["states"][cone]
+        else:
+            state_mat = state
+
+        skimage.io.imsave("%s/state_cone%d.png"%(dir_path, cone),
+                          skimage.transform.resize((state_mat+STATE_SIZE)/(STATE_SIZE+1),
+                                                   (1000, 1000)))
