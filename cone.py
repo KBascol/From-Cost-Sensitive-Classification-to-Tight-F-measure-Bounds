@@ -18,8 +18,6 @@ STATE_SIZE = 1000
 def run_algo(data, nb_class, c_val, argv):
     """ Use CONE algorithm on given options """
 
-    timer = time()
-
     outputs = {"confusions": {"train": np.zeros((argv.max_step, nb_class, nb_class), dtype=int),
                               "valid": np.zeros((argv.max_step, nb_class, nb_class), dtype=int),
                               "test": np.zeros((argv.max_step, nb_class, nb_class), dtype=int)},
@@ -33,36 +31,32 @@ def run_algo(data, nb_class, c_val, argv):
 
     best_fm = 0
     next_t_val = (argv.tmin+argv.tmax)/2
-    print((argv.tmin, argv.tmax, next_t_val))
     max_fm = 1
 
     step = 0
 
     state = np.ones((STATE_SIZE, STATE_SIZE))
 
-    log.debug("\t\tinitialization time: %f", time()-timer)
-
     while max_fm >= best_fm and step < argv.max_step:
-        print(outputs["t_values"])
         timer = time()
 
-        log.debug("compute weights...")
+        log.debug("Compute weights...")
 
         outputs["t_values"][step] = next_t_val
         class_w = compute_weights(outputs["t_values"][step], nb_class, argv.beta)
 
-        log.debug("initialize classifier...")
+        log.debug("Initialize classifier...")
 
         classif = classifier.get_classifier(argv, c_val, class_w)
 
-        log.debug("fit classifier...")
+        log.debug("Fit classifier...")
         timer_train = time()
 
         classif.fit(data["train"]["exemples"], data["train"]["labels"])
 
-        log.debug("\t\t\ttrain time: %f", time()-timer_train)
+        log.debug("\ttrain time: %f", time()-timer_train)
 
-        log.debug("test classifier...")
+        log.debug("Test classifier...")
         timer_test = time()
 
         for subset in ["train", "valid", "test"]:
@@ -75,15 +69,14 @@ def run_algo(data, nb_class, c_val, argv):
 
             conf_mats[subset][step], saved_outs = out_iter
 
-        log.debug("\t\t\ttest time: %f", time()-timer_test)
+        log.debug("\ttest time: %f", time()-timer_test)
 
         timer_cone = time()
-        log.debug("select next cone...")
+        log.debug("Select next cone...")
 
         curr_fm = add_cone(state, conf_mats["train"][step], outputs["t_values"][step], argv)
-        print(state.min())
 
-        log.debug("\t\t\tdrawing cone time: %f", time()-timer_cone)
+        log.debug("\tdrawing cone time: %f", time()-timer_cone)
 
         if curr_fm > best_fm:
             best_fm = curr_fm
@@ -92,16 +85,14 @@ def run_algo(data, nb_class, c_val, argv):
 
         next_t_val, max_fm = get_best_fm_available(state, argv, t_vals=outputs["t_values"][:step+1])
 
-        log.debug("\t\t\tfind next cone time: %f", time()-timer_fm)
-        log.debug("t: %.5f fm: %.5f next t: %.5f max fm: %.5f",
+        log.debug("\tfind next cone time: %f", time()-timer_fm)
+        log.debug("Step %d time: %f t: %.5f fm: %.5f next t: %.5f max fm: %.5f", step, time()-timer,
                  outputs["t_values"][step], curr_fm, next_t_val, max_fm)
 
         if argv.save_states:
             state_to_png(state, argv.save_states, step)
 
         step += 1
-
-        log.debug("\t\tstep %d time: %f", step, time()-timer)
 
     return outputs
 
@@ -188,11 +179,11 @@ def add_cone(state, conf_mat, t_val, argv):
     grid = np.meshgrid(x_cone, y_cone)
     sup_linel = grid[1]-slopel*grid[0]-offsetl >= 0
     sup_liner = grid[1]-sloper*grid[0]-offsetr >= 0
-    log.info("\t\t\t\ttimer meshgrid: %f", time()-timer)
+    log.debug("\t\ttimer meshgrid: %f", time()-timer)
 
     timer = time()
     state[np.logical_and(sup_linel, sup_liner)] = -STATE_SIZE
-    log.info("\t\t\t\ttimer draw: %f", time()-timer)
+    log.debug("\t\ttimer draw: %f", time()-timer)
 
     return curr_fm
 
