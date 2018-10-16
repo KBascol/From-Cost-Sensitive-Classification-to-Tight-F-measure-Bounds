@@ -8,7 +8,7 @@ import logging as log
 import numpy as np
 from sklearn.metrics import confusion_matrix
 
-from . import classifier
+import classifier
 
 def run_algo(data, nb_class, c_val, argv):
     """ Tune classifier with bisection algorithm """

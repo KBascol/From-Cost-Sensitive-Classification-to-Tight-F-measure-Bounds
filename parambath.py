@@ -4,7 +4,7 @@
 
 import numpy as np
 
-from . import classifier
+import classifier
 
 def run_algo(data, nb_class, c_val, argv):
     """ Use Parambath et al. (2014) algorithm on given options """

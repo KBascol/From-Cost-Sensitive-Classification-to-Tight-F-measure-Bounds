@@ -10,8 +10,8 @@ import skimage.io
 import skimage.transform
 from scipy.optimize import fmin_cobyla
 
-from . import utils
-from . import classifier
+import utils
+import classifier
 
 STATE_SIZE = 1000
 

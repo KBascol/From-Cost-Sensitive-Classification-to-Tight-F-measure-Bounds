@@ -10,8 +10,7 @@ import logging as log
 import numpy as np
 import matplotlib.pyplot as plt
 
-sys.path.insert(0, os.path.dirname(os.getcwd()))
-from FIAFMO import cone, utils
+import cone, utils
 
 def draw_cones(result_file, c_val, algo, secondary_file="", ymax=1, ymin=0, xmax=1, xmin=0,
                beta=1.0, eps1=0, save=True, subset="train"):

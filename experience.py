@@ -9,8 +9,7 @@ import logging as log
 
 import numpy as np
 
-sys.path.insert(0, os.path.dirname(os.getcwd()))
-from FIAFMO import cone, baselines, parambath, bisection
+import cone, baselines, parambath, bisection
 
 def experience(argv):
     """ Hanlde exeperience corresponding to options """
