@@ -10,7 +10,7 @@ import logging as log
 import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.getcwd()))
-from FIAFMO import cone, baselines, parambath
+from FIAFMO import cone, baselines, parambath, bisection
 
 def experience(argv):
     """ Hanlde exeperience corresponding to options """
@@ -32,7 +32,7 @@ def experience(argv):
 
         results = {}
         for c_val in argv.C_grid:
-            log.info("\t C=%f"%c_val)
+            log.info("\t C=%f", c_val)
 
 
             if argv.save_states:
@@ -62,10 +62,13 @@ def get_algo(argv):
     if argv.algo.lower() == "parambath":
         return parambath
 
+    if argv.algo.lower() == "bisection":
+        return bisection
+
     if argv.algo.lower() == "baseline" or argv.algo.lower() == "i.r.":
         return baselines
 
-    log.error("Unknown algorithm %s. Algo available: cone, parambath, baseline, i.r.", argv.algo)
+    log.error("Unknown algorithm %s. Algo available: cone, parambath, bisection, baseline, i.r.", argv.algo)
     sys.exit(0)
 
 if __name__ == "__main__":
