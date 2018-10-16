@@ -69,7 +69,7 @@ def draw_cones(result_file, c_val, algo, secondary_file="", ymax=1, ymin=0, xmax
     else:
         plt.show()
 
-def get_results_fm(result_file, nb_steps, folds=None, beta=1.0, tune_thresh=False):
+def get_results_fm(result_file, nb_steps, folds=None, beta=1.0, tune_thresh=False, dataset_path=""):
     """ return best svm in validation on test set for CONE method"""
 
     if folds is None:
@@ -77,8 +77,13 @@ def get_results_fm(result_file, nb_steps, folds=None, beta=1.0, tune_thresh=Fals
 
     fmeas = np.zeros(len(folds), dtype=np.float64)
 
+    if tune_thresh:
+        assert os.path.isfile(dataset_path), "Dataset required when tuning threashold"
+
+        dataset = np.load(dataset_path)["dataset"].item()
+
     for fold_i, fold in enumerate(folds):
-        valid_fm = np.zeros(3, dtype=np.float64)
+        valid_fm = np.zeros(4, dtype=np.float64)
 
         results = np.load(result_file%fold).item()
 
@@ -95,17 +100,35 @@ def get_results_fm(result_file, nb_steps, folds=None, beta=1.0, tune_thresh=Fals
         for c_val in results:
             c_results = results[c_val]
 
-            for conf_mat, t_val in zip(c_results["confusions"]["valid"][conf_grid],
-                                       c_results["t_values"][conf_grid]):
-                fm_tmp = utils.micro_fmeasure(conf_mat, beta)
+            if tune_thresh and "predictions" not in c_results:
+                log.error("Predictions needed when tuning threshold.")
+                sys.exit(0)
+
+            for conf_i in conf_grid:
+                if "predictions" not in c_results:
+                    preds = None
+                    labels = None
+                else:
+                    preds = c_results["predictions"]["valid"]
+                    labels = dataset["fold%d"%fold_i]["valid"]["labels"]
+
+                fm_tmp, thres_tmp = utils.comp_fm(c_results["confusions"]["valid"][conf_i], beta,
+                                                  tune_thresh, preds, labels)
 
                 if fm_tmp >= valid_fm[0]:
-                    valid_fm = [fm_tmp, c_val, t_val]
+                    valid_fm = [fm_tmp, c_val, c_results["t_values"][conf_i], thres_tmp]
 
         c_results = results[valid_fm[1]]
         t_index = np.where(c_results["t_values"] == valid_fm[2])[0][0]
 
-        fmeas[fold_i] = utils.micro_fmeasure(c_results["confusions"]["test"][t_index], beta)
+        if tune_thresh:
+            test_conf = utils.thresh_conf(c_results["predictions"]["test"][t_index],
+                                          dataset["fold%d"%fold_i]["test"]["labels"],
+                                          valid_fm[3])
+        else:
+            test_conf = c_results["confusions"]["test"][t_index]
+
+        fmeas[fold_i] = utils.micro_fmeasure(test_conf, beta)
 
     fmeas_mean = fmeas.mean()*100
     std_dev = np.sqrt(fmeas.var())

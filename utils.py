@@ -36,53 +36,44 @@ def accuracies(conf, class_w, nb_class):
 
     return acc, wacc
 
-def bin_fmeasure(conf_mat, beta=1.0):
-    """ Compute f-measure from confusion matrix """
+def comp_fm(conf_mat, beta=1.0, tune_thresh=False, out=None, label=None):
+    """ return f-measure and threshold if tuning enable None otherwise """
 
-    true_p = conf_mat[1, 1]
+    if tune_thresh:
+        fmeas = np.zeros(len(out))
 
-    if true_p == 0:
-        return 0.0
+        for fm_i, thres in enumerate(out):
+            if conf_mat.shape[0] > 2:
+                thres = np.max(thres[1:])-thres[0]+1
 
-    tpfp = conf_mat[:, 1].sum()
+            fmeas[fm_i] = micro_fmeasure(thresh_conf(out, label, thres), beta)
 
-    if tpfp > 0:
-        preci = true_p/tpfp
+        best_i = np.argmax(fmeas)
+        thres = out[best_i]
+
+        if conf_mat.shape[0] > 2:
+            thres = np.max(thres[1:])-thres[0]+1
+
+        return (fmeas[best_i], thres)
     else:
-        preci = 1
+        return (micro_fmeasure(conf_mat, beta), None)
 
-    recall = true_p/(conf_mat[1].sum())
+def thresh_conf(outs, label, threshold):
+    """ get confusion matrix given a prediction threshold """
 
-    return (beta**2+1)*preci*recall/(beta**2*preci+recall)
+    nb_class = outs.shape[1]
 
-def preci_recall_class(conf_mat, class_i):
-    """ Compute precision dans recall from confusion matrix """
+    conf_mat = np.zeros((nb_class, nb_class))
 
-    true_p = conf_mat[class_i, class_i]
-    tpfp = conf_mat[:, class_i].sum()
-
-    if tpfp > 0:
-        precision = true_p/tpfp
+    if nb_class == 2:
+        outputs = (outs[:, 0] > threshold).astype(int)
     else:
-        precision = 1
+        outputs = np.argmax(outs + threshold, axis=1)
 
-    recall = true_p/(conf_mat[class_i].sum())
+    for pred_i, pred in enumerate(outputs):
+        conf_mat[label[pred_i], pred] += 1
 
-    return (precision, recall)
-
-def macro_fmeasure(conf_mat, beta=1.0):
-    """ get fmeasure from confusion matrix for multiclass problem """
-
-    precisions = np.zeros(conf_mat.shape[0])
-    recalls = np.zeros(conf_mat.shape[0])
-
-    for class_i in range(conf_mat.shape[0]):
-        precisions[class_i], recalls[class_i] = preci_recall_class(conf_mat, class_i)
-
-    mean_recall = recalls.mean()
-    mean_preci = precisions.mean()
-
-    return ((1+beta**2)*mean_preci*mean_recall)/(beta**2*mean_preci+mean_recall)
+    return conf_mat
 
 def micro_fmeasure(conf_mat, beta=1.0):
     """ Compute micro-Fmeasure for multiclass problems """
