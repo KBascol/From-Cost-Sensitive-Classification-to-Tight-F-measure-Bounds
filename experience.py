@@ -6,7 +6,6 @@ import os
 import sys
 import argparse
 import logging as log
-from time import localtime, strftime
 
 import numpy as np
 
@@ -21,12 +20,11 @@ def experience(argv):
 
     algo = get_algo(argv)
 
-    results_path = argv.log_dir+"/"+strftime("%d%m%Y_%H%M", localtime())+"_"+argv.algo+"/"
+    results_path = os.path.join(argv.log_dir, dataset_name)
 
     try:
         os.makedirs(results_path)
     except FileExistsError:
-        # problem when several fold are launched at the same time
         pass
 
     for fold_i in argv.fold_grid:
@@ -39,7 +37,10 @@ def experience(argv):
 
             if argv.save_states:
                 states_path = results_path+"/states_fold%d/c%f"%(fold_i, c_val)
-                os.makedirs(states_path)
+                try:
+                    os.makedirs(states_path)
+                except FileExistsError:
+                    pass
                 argv.save_states = states_path
 
             results[c_val] = algo.run_algo(dataset["fold%d"%fold_i], dataset["nb_class"], c_val, argv)
@@ -49,7 +50,7 @@ def experience(argv):
 
             log.debug(results[c_val])
 
-        np.save(results_path+"%s_%s_%s_fold%d.npy"%(argv.algo, argv.classif, dataset_name, fold_i),
+        np.save(results_path+"/%s_%s_%s_fold%d.npy"%(argv.algo, argv.classif, dataset_name, fold_i),
                 results)
 
 def get_algo(argv):
