@@ -9,7 +9,10 @@ import logging as log
 
 import numpy as np
 
-import cone, baselines, parambath, bisection
+import cone
+import baselines
+import parambath
+import bisection
 
 def experience(argv):
     """ Hanlde exeperience corresponding to options """
@@ -103,6 +106,8 @@ if __name__ == "__main__":
                         action='store_true')
     PARSER.add_argument("--cone_with_state", help="if algo is cone: use implementation with discretised (t, fm) space",
                         action='store_true')
+    PARSER.add_argument("--state_size", help="if algo is cone: size of the discretised (t, fm) space",
+                        type=int, default=10000)
     PARSER.add_argument("--kappa", help="if algo is bisection: number of tuning iterations",
                         type=int, default=100)
 

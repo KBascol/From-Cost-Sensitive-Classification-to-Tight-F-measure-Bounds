@@ -14,8 +14,6 @@ from scipy.optimize import fmin_cobyla
 import utils
 import classifier
 
-STATE_SIZE = 1000
-
 def run_algo(data, nb_class, c_val, argv):
     """ Use CONE algorithm on given options """
 
@@ -39,11 +37,14 @@ def run_algo(data, nb_class, c_val, argv):
     step = 0
 
     if argv.cone_with_state:
-        state = np.ones((STATE_SIZE, STATE_SIZE))
+        state = np.ones((argv.state_size, argv.state_size))
     else:
         saved_cones = np.zeros((argv.max_step+1, 6))
         # add line y = 1 as "cone" to get early intersections points
         saved_cones[0] = [0, -1, 0, 0, 1, 1]
+
+        poss_next_t = np.empty(0, dtype=np.float32)
+        poss_next_fm = np.empty(0, dtype=np.float32)
 
     while max_fm >= best_fm and step < argv.max_step:
         timer = time()
@@ -90,13 +91,15 @@ def run_algo(data, nb_class, c_val, argv):
             log.debug("\t\tfind next cone time: %f", time()-timer_fm)
 
             if argv.save_states:
-                state_to_png(state, argv.save_states, step)
+                state_to_png(state, argv, step)
         else:
             saved_cones[step+1] = get_slope(conf_mats["train"][step], outputs["t_values"][step],
-                                          "cone", beta=argv.beta)
+                                            "cone", beta=argv.beta)
             curr_fm = saved_cones[step+1][0]
-            next_t_val, max_fm = find_next_cone(saved_cones[:step+2], outputs["t_values"][:step+1],
-                                                tmin=argv.tmin, tmax=argv.tmax)
+            next_t_val, max_fm, poss_next_t, poss_next_fm = find_next_cone(saved_cones[:step+2],
+                                                                           outputs["t_values"][:step+1],
+                                                                           poss_next_t, poss_next_fm,
+                                                                           tmin=argv.tmin, tmax=argv.tmax)
         log.debug("\tnext cone time: %f", time()-timer_cone)
 
         if curr_fm > best_fm:
@@ -115,7 +118,7 @@ def get_best_fm_available(state, argv, t_vals=None):
     """ search for the next CONE step """
 
     # search position of next best fmeasure in state
-    fm_pos = np.where(state.sum(axis=1) > -STATE_SIZE**2)[0]
+    fm_pos = np.where(state.sum(axis=1) > -argv.state_size**2)[0]
     if fm_pos.shape[0] == 0:
         log.error("no more cone possible....")
         return -1, -1
@@ -128,15 +131,15 @@ def get_best_fm_available(state, argv, t_vals=None):
     if t_pos.shape[0] == 0:
         # if no position, use 0
 
-        t_val = utils.linspace_value(argv.tmin, argv.tmax, STATE_SIZE, 0)
+        t_val = utils.linspace_value(argv.tmin, argv.tmax, argv.state_size, 0)
     if t_pos.shape[0] == 1 or argv.strategy == "left":
         # if one position or stategy i to take first t from the left
 
-        t_val = utils.linspace_value(argv.tmin, argv.tmax, STATE_SIZE, t_pos[0])
+        t_val = utils.linspace_value(argv.tmin, argv.tmax, argv.state_size, t_pos[0])
     elif argv.strategy == "right":
         # if  stategy i to take first t from the right
 
-        t_val = utils.linspace_value(argv.tmin, argv.tmax, STATE_SIZE, t_pos[-1])
+        t_val = utils.linspace_value(argv.tmin, argv.tmax, argv.state_size, t_pos[-1])
     else:
         # search for the highest longest allowed zone
 
@@ -152,7 +155,7 @@ def get_best_fm_available(state, argv, t_vals=None):
                 max_end_i = point_i+1
 
             max_so_far = max(max_so_far, max_end)
-        t_val = utils.linspace_value(argv.tmin, argv.tmax, STATE_SIZE,
+        t_val = utils.linspace_value(argv.tmin, argv.tmax, argv.state_size,
                                      int(max_end_i-max_so_far//2))
 
     if t_vals is not None and argv.strategy == "middle_cones":
@@ -172,13 +175,13 @@ def get_best_fm_available(state, argv, t_vals=None):
 
         t_val = (prevt_l+prevt_r)/2
 
-    return t_val, utils.linspace_value(1, 0, STATE_SIZE, fm_pos)
+    return t_val, utils.linspace_value(1, 0, argv.state_size, fm_pos)
 
 def add_cone(state, conf_mat, t_val, argv):
     """ add CONE step on state """
 
-    x_cone = np.linspace(argv.tmin, argv.tmax, STATE_SIZE)
-    y_cone = np.linspace(1, 0, STATE_SIZE)
+    x_cone = np.linspace(argv.tmin, argv.tmax, argv.state_size)
+    y_cone = np.linspace(1, 0, argv.state_size)
 
     curr_fm, _, slopel, sloper, offsetl, offsetr = get_slope(conf_mat, t_val,
                                                              "cone", beta=argv.beta)
@@ -190,7 +193,7 @@ def add_cone(state, conf_mat, t_val, argv):
     log.debug("\t\ttimer meshgrid: %f", time()-timer)
 
     timer = time()
-    state[np.logical_and(sup_linel, sup_liner)] = -STATE_SIZE
+    state[np.logical_and(sup_linel, sup_liner)] = -argv.state_size
     log.debug("\t\ttimer draw: %f", time()-timer)
 
     return curr_fm
@@ -298,7 +301,7 @@ def compute_weights(t_value, nb_class, beta=1.0):
 
     return weights
 
-def state_to_png(state, dir_path, cone_i=None):
+def state_to_png(state, argv, cone_i=None):
     """ get an image from a state """
 
     if cone_i is None:
@@ -312,37 +315,32 @@ def state_to_png(state, dir_path, cone_i=None):
         else:
             state_mat = state
 
-        skimage.io.imsave("%s/state_cone%d.png"%(dir_path, cone),
-                          skimage.transform.resize((state_mat+STATE_SIZE)/(STATE_SIZE+1),
+        skimage.io.imsave("%s/state_cone%d.png"%(argv.save_states, cone),
+                          skimage.transform.resize((state_mat+argv.state_size)/(argv.state_size+1),
                                                    (1000, 1000)))
 
-def find_next_cone(saved_cones, cones_t, tmin=0, tmax=1):
+def find_next_cone(saved_cones, cones_t, possible_next_t, possible_next_fm, tmin=0, tmax=1):
     """ find next t without state """
 
-    possible_next_t = np.empty(0, dtype=np.float32)
-    possible_next_fm = np.empty(0, dtype=np.float32)
+    double_fm = np.repeat(saved_cones[:-1, [0]], 2, axis=1)
 
+    # print("CONE", cone_i)
+    # all (t, fm) couple of all the intesections of the last cone with the other cones and y=1
+    for side in [2, 3]:
+        t_inter = ((saved_cones[:-1, [4, 5]]-saved_cones[-1, side+2])
+                   /(saved_cones[-1, side]-saved_cones[:-1, [2, 3]]))
 
-    for cone_i, cone in enumerate(saved_cones[1:]):
-        other_cones = saved_cones[[0]+[c_i for c_i in range(1, saved_cones.shape[0]) if c_i > cone_i+1]]
-        double_fm = np.repeat(other_cones[:, [0]], 2, axis=1)
+        t_inter = np.clip(t_inter, tmin, tmax)
 
-        # print("CONE", cone_i)
-        # all (t, fm) couple of all the intesections between a given cones and the others
-        for side in [2, 3]:
-            t_inter = (other_cones[:, [4, 5]]-cone[side+2])/(cone[side]-other_cones[:, [2, 3]])
+        fm_inter = (t_inter*saved_cones[-1, side]+saved_cones[-1, side+2])
 
-            t_inter = np.clip(t_inter, tmin, tmax)
+        # keep only the couples with fm > fm of cone
+        keep_inter = (fm_inter >= saved_cones[-1, 0])*(fm_inter >= double_fm)
+        # print(keep_inter)
+        # print(t_inter, fm_inter)
 
-            fm_inter = (t_inter*cone[side]+cone[side+2])
-
-            # keep only the couples with fm > fm of cone
-            keep_inter = (fm_inter >= cone[0])*(fm_inter >= double_fm)
-            # print(keep_inter)
-            # print(t_inter, fm_inter)
-
-            possible_next_t = np.concatenate([possible_next_t, t_inter[keep_inter].reshape(-1)])
-            possible_next_fm =  np.concatenate([possible_next_fm, fm_inter[keep_inter].reshape(-1)])
+        possible_next_t = np.concatenate([possible_next_t, t_inter[keep_inter].reshape(-1)])
+        possible_next_fm = np.concatenate([possible_next_fm, fm_inter[keep_inter].reshape(-1)])
 
     # print(possible_next_t, possible_next_fm)
 
@@ -370,4 +368,28 @@ def find_next_cone(saved_cones, cones_t, tmin=0, tmax=1):
     else:
         prevt_r = np.min(prevt_r)
 
-    return ((prevt_l+prevt_r)/2, possible_next_fm[inter_i])
+    return (prevt_l+prevt_r)/2, possible_next_fm[inter_i], possible_next_t, possible_next_fm
+
+def outputs_to_json(file_path, dataset, c_value=None):
+    """ get json files from grid results file """
+
+    results = np.load(file_path).item()
+
+    if c_value is not None and not isinstance(c_value, list):
+        c_value = [c_value]
+    elif c_value is None:
+        c_value = results.keys()
+
+
+    for c_val in c_value:
+        conf_mats = results[c_val]["confusions"]["train"]
+
+        to_json = {"points":[], "P":int(conf_mats[0][1].sum()), "N":int(conf_mats[0][0].sum()),
+                   "beta":1.0, "C":c_val, "dataset":dataset}
+
+        for conf_i, conf_mat in enumerate(conf_mats):
+            to_json["points"].append({"t":float(results[c_val]["t_values"][conf_i]),
+                                      "fp":int(conf_mat[0, 1]),
+                                      "fn":int(conf_mat[1, 0])})
+
+        utils.write_json("%s_C%s.json"%(file_path.replace(".npy", ""), str(c_val).replace(".", "")), to_json)

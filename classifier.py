@@ -21,7 +21,7 @@ def get_classifier(argv, c_val, class_weight):
 
     if argv.classif == "linear_svm":
         return LinearSVC(C=c_val, class_weight=class_weight,
-                         loss="hinge", max_iter=50000)
+                         loss="hinge", max_iter=500000)
 
     if argv.classif == "logi_reg":
         return LogisticRegression(C=c_val, class_weight=class_weight)
@@ -39,7 +39,7 @@ def get_classifier(argv, c_val, class_weight):
 
     match_svc = re.match("SVC_([A-Za-z]+)", argv.classif)
     if match_svc:
-        return SVC(C=c_val, class_weight=class_weight, kernel=match_svc.group(1), max_iter=50000)
+        return SVC(C=c_val, class_weight=class_weight, kernel=match_svc.group(1), max_iter=500000)
 
     log.error("Unknown classifier %s.", argv.classif)
     sys.exit(0)

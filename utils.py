@@ -2,6 +2,7 @@
     tools and measures
 """
 
+import json
 import logging as log
 
 import numpy as np
@@ -84,3 +85,14 @@ def micro_fmeasure(conf_mat, beta=1.0):
              +conf_mat[0, 1:].sum()
 
     return fmeas
+
+def load_json(file_path):
+    """ Parse a file content for remove unsupported comments and load as JSON """
+    with open(file_path) as json_file:
+        return json.load(json_file)
+    raise Exception("Impossible to read JSON file " + file_path)
+
+def write_json(file_path, content):
+    """ Parse a file content for remove unsupported comments and load as JSON """
+    with open(file_path, 'w') as json_file:
+        json_file.write(json.dumps(content, indent=4 * ' '))
