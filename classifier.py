@@ -30,12 +30,12 @@ def get_classifier(argv, c_val, class_weight):
         return RandomForestClassifier(class_weight=class_weight)
 
     if argv.classif == "heuristic_ERSVM":
-        assert nb_features is not None, "Number of features required for Robust SVM"
-        return HERSVM(class_weight=class_weight, initial_weight=np.random.rand(nb_features))
+        assert argv.nb_features > 0, "Number of features required for Robust SVM"
+        return HERSVM(class_weight=class_weight, initial_weight=np.random.rand(argv.nb_features))
 
     if argv.classif == "DCA_ERSVM":
-        assert nb_features is not None, "Number of features required for Robust SVM"
-        return DERSVM(class_weight=class_weight, initial_w=np.random.rand(nb_features))
+        assert argv.nb_features > 0, "Number of features required for Robust SVM"
+        return DERSVM(class_weight=class_weight, initial_w=np.random.rand(argv.nb_features))
 
     match_svc = re.match("SVC_([A-Za-z]+)", argv.classif)
     if match_svc:

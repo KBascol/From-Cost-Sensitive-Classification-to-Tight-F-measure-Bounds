@@ -39,10 +39,10 @@ class ERSVM:
         dv = np.dot(x_test, self.weight) + self.bias
         return sum(dv * y_test > 0 + 1e-9) / float(num)
 
-    def decision_function(self, x_test, y_test):
+    def decision_function(self, x_test):
         dv = np.dot(x_test, self.weight) + self.bias
 
-        return dv * y_test
+        return dv
 
     def calc_f(self, x_test, y_test):
         num, dim = x_test.shape
@@ -81,14 +81,18 @@ class ERSVM:
         self.obj = []
         self.t = []
 
-    def fit(self, x, y):
+    def fit(self, examples, labels):
+        x = examples.copy().astype(np.float64)
+        y = labels.copy().astype(np.float64)
+        y[y!=1.] = -1.
+
         time_start = time.time()
         self.initialize_result()
         num, dim = x.shape
         c = cplex.Cplex()
         c.set_results_stream(None)
-        w_names = ['w%s' % i for i in range(dim)]
-        xi_names = ['xi%s' % i for i in range(num)]
+        w_names = [r'w%s' % i for i in range(dim)]
+        xi_names = [r'xi%s' % i for i in range(num)]
         # Initialize risk
         self.risks = - y * (np.dot(x, self.weight) + self.bias)
         # Initialize eta
@@ -104,21 +108,24 @@ class ERSVM:
             self.t.append(self.constant_t)
         # Set variables and objective function
         c.variables.add(names=w_names, lb=[-cplex.infinity]*dim, ub=[cplex.infinity]*dim)
-        c.variables.add(names=['b'], lb=[-cplex.infinity], ub=[cplex.infinity])
+        c.variables.add(names=[r'b'], lb=[-cplex.infinity], ub=[cplex.infinity])
         c.variables.add(names=xi_names, obj=[1.] * num, lb=[0.]*num, ub=[cplex.infinity]*num)
-        c.variables.add(names=['alpha'], obj=[self.nu * num], lb=[-cplex.infinity], ub=[cplex.infinity])
+        c.variables.add(names=[r'alpha'], obj=[self.nu * num], lb=[-cplex.infinity], ub=[cplex.infinity])
         # Set quadratic constraint
-        c.quadratic_constraints.add(name='norm', quad_expr=[w_names, w_names, [1.]*dim], rhs=1., sense='L')
+        c.quadratic_constraints.add(name=r'norm', quad_expr=[w_names, w_names, [1.]*dim], rhs=1., sense='L')
         # Set linear constraints w*y_i*x_i + b*y_i + xi_i - alf >= 0
         # linexpr = [[w_names + ['b', 'xi%s' % i, 'alpha'], list(x[i] * y[i]) + [y[i], 1., 1.]] for i in range(num)]
 
-        len_vars = len(list(x[0] * y[0]) + [y[0], 1., 1.])
-        linexpr = [cplex.SparsePair(ind=w_names + ['b', 'xi%s' % i, 'alpha'],
+        opti_vars = list(x[0] * y[0]) + [y[0], 1., 1.]
+        len_vars = len(opti_vars)
+
+        print(w_names + [r'b', r'xi0', r'alpha'], opti_vars, len_vars)
+        linexpr = [cplex.SparsePair(ind=w_names + [r'b', r'xi%s'%i, r'alpha'],
                                     val=list(x[i] * y[i]) + [y[i], 1., 1.]) for i in range(num)]
-        names = ['margin%s' % i for i in range(num)]
-        c.linear_constraints.add(names=names, senses=['G' for _ in range(num)],
-                                 range_values=[0 for _ in range(num)],
-                                 rhs=[0 for _ in range(num)], lin_expr=linexpr)
+        names = [r'margin%s' % i for i in range(num)]
+        c.linear_constraints.add(names=names, senses=[r'G' for _ in range(num)],
+                                 range_values=[0.0 for _ in range(num)],
+                                 rhs=[0.0 for _ in range(num)], lin_expr=linexpr)
         # Set QP optimization method
         c.parameters.qpmethod.set(self.cplex_method)
         # Iteration
