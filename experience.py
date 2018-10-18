@@ -101,5 +101,13 @@ if __name__ == "__main__":
                         help="if algo is cone: strategy for cone selection (left|right|middle_space|middle_cones)")
     PARSER.add_argument("--save_states", help="if algo is cone: Save all intermediate states as png",
                         action='store_true')
+    PARSER.add_argument("--cone_with_state", help="if algo is cone: use implementation with discretised (t, fm) space",
+                        action='store_true')
+    PARSER.add_argument("--kappa", help="if algo is bisection: number of tuning iterations",
+                        type=int, default=100)
+
+    # classifier-specific options
+    PARSER.add_argument("--nb_features", help="if classif is DCA_ERSVM or H_ERSVM: number of features in dataset",
+                        type=int, default=0)
 
     experience(PARSER.parse_args())

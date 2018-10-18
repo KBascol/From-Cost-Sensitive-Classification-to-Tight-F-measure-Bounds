@@ -24,8 +24,8 @@ def draw_cones(result_file, c_val, algo, secondary_file="", ymax=1, ymin=0, xmax
     plt.figure(figsize=(7, 7))
 
     for x_curr, conf in zip(t_values, conf_mats):
-        y_curr, phi, slopel, sloper, offsetl, offsetr = get_slope(conf, x_curr, algo=algo,
-                                                                  eps1=eps1, beta=beta)
+        y_curr, phi, slopel, sloper, offsetl, offsetr = cone.get_slope(conf, x_curr, algo=algo,
+                                                                       eps1=eps1, beta=beta)
         fmeas.append(y_curr)
 
         if slopel == 0:
@@ -253,14 +253,14 @@ def bounds_vs_eps1(result_file, c_val=1, t_min=0, t_max=1, subset="train", ymin=
             t_sup = tspace > t_val
             t_eq = tspace == t_val
 
-            fmeas, phi, slopel, sloper, offl, offr = get_slope(conf, t_val, "parambath",
-                                                               eps1=epsilon, beta=beta)
+            fmeas, phi, slopel, sloper, offl, offr = cone.get_slope(conf, t_val, "parambath",
+                                                                    eps1=epsilon, beta=beta)
             tmp_bounds_p[:, conf_i] += t_inf.astype(int)*(tspace*slopel+offl)\
                                        + t_sup.astype(int)*(tspace*sloper+offr)\
                                        + t_eq.astype(int)*(fmeas+phi*epsilon)
 
-            fmeas, phi, slopel, sloper, offl, offr = get_slope(conf, t_val, "cone",
-                                                               eps1=epsilon, beta=beta)
+            fmeas, phi, slopel, sloper, offl, offr = cone.get_slope(conf, t_val, "cone",
+                                                                    eps1=epsilon, beta=beta)
             tmp_bounds_c[:, conf_i] += t_inf.astype(int)*(tspace*slopel+offl)\
                                        + t_sup.astype(int)*(tspace*sloper+offr)\
                                        + t_eq.astype(int)*(fmeas+phi*epsilon)
@@ -402,7 +402,8 @@ def fm_vs_nbclassif(root_dir, dataset, max_step=19, classif="linear_svm", bounds
             for conf_i, (conf_p, conf_c) in enumerate(zip(conf_para_subgrid,
                                                           conf_cone[range(0, nb_cones)])):
                 t_val = t_vals_p_subgrid[conf_i]
-                fmeas, phi, slopel, sloper, offl, offr = get_slope(conf_p, t_val, "parambath", eps1=eps1, beta=beta)
+                fmeas, phi, slopel, sloper, offl, offr = cone.get_slope(conf_p, t_val, "parambath",
+                                                                        eps1=eps1, beta=beta)
                 tmp_fmeas_p[conf_i] = fmeas
 
                 if bounds:
@@ -422,7 +423,8 @@ def fm_vs_nbclassif(root_dir, dataset, max_step=19, classif="linear_svm", bounds
                 else:
                     t_val = t_vals_c[conf_i]
 
-                    fmeas, phi, slopel, sloper, offl, offr = get_slope(conf_c, t_val, "cone", eps1=eps1, beta=beta)
+                    fmeas, phi, slopel, sloper, offl, offr = cone.get_slope(conf_c, t_val, "cone",
+                                                                            eps1=eps1, beta=beta)
                     tmp_fmeas_c[conf_i] = fmeas
 
                     if bounds:
@@ -501,32 +503,3 @@ def fm_vs_nbclassif(root_dir, dataset, max_step=19, classif="linear_svm", bounds
         plt.close()
     else:
         plt.show()
-
-def get_slope(conf_mat, t_val, algo, eps1=0, beta=1.0):
-    """ return all values corresponding to a cone  (fm, phi, slopel, sloper, offsetl, offsetr) """
-
-    curr_fm = utils.micro_fmeasure(conf_mat, beta)
-    nb_pos = conf_mat[1:].sum()
-
-    if algo.lower() == "cone":
-        nb_fp = conf_mat[0, 1:].sum()
-        nb_fn = conf_mat[1:].sum()-np.diagonal(conf_mat[1:, 1:]).sum()
-
-        phi = 1/(1+beta**2)*nb_pos - nb_fn + nb_fp
-
-        if conf_mat.shape[0] == 2:
-            slopel, sloper = cone.bin_slope(conf_mat, beta)
-        else:
-            slopel, sloper = cone.mclass_slope(conf_mat, beta)
-    elif algo.lower() == "parambath":
-        phi = 1/nb_pos
-        m_norm = math.sqrt(conf_mat[0].sum()**2+nb_pos**2)
-        sloper = 2*2*phi*m_norm
-        slopel = -sloper
-    else:
-        log.error("Unknown bound algorithm %s, only cone or parambath available.", algo)
-
-    offsetl = curr_fm-slopel*t_val+eps1*phi
-    offsetr = curr_fm-sloper*t_val+eps1*phi
-
-    return curr_fm, phi, slopel, sloper, offsetl, offsetr
