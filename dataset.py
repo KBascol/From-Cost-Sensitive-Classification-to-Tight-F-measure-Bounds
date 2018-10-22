@@ -30,7 +30,7 @@ def letter(filename):
 
             nb_value += 1
 
-    data_to_npz(np.array(data), nb_class, os.path.basename(filename), "Letter")
+    data_to_npz(np.array(data, dtype=np.float32), nb_class, os.path.dirname(filename), "Letter")
 
 def get_adult_features(filename, feat_count):
     """ Change values from Adult dataset to numerical vales """
@@ -112,7 +112,7 @@ def adult(filename):
 
     test = adult_to_hotvect(np.array(get_adult_features(filename+".test", feat_count)))
 
-    data_to_npz(data, nb_class, os.path.basename(filename), "Adult", test=test)
+    data_to_npz(data, nb_class, os.path.dirname(filename), "Adult", test=test)
 
 def news20(filename):
     """
@@ -148,7 +148,7 @@ def news20(filename):
                     index = int(split_val[0])
                     test[line_i, index] = float(split_val[1])
 
-    data_to_npz(data, nb_class, os.path.basename(filename), "News20", test=test)
+    data_to_npz(data, nb_class, os.path.dirname(filename), "News20", test=test)
 
 def ijcnn(filename):
     """
@@ -187,7 +187,7 @@ def ijcnn(filename):
                     index = int(val_split[0])
                     test[line_i, index] = float(val_split[1])
 
-    data_to_npz(data, nb_class, os.path.basename(filename), "IJCNN", test=test)
+    data_to_npz(data, nb_class, os.path.dirname(filename), "IJCNN", test=test)
 
 def wine(filename):
     """
@@ -213,7 +213,7 @@ def wine(filename):
             else:
                 ignored += 1
 
-    data_to_npz(data, nb_class, os.path.basename(filename), "Wine")
+    data_to_npz(data, nb_class, os.path.dirname(filename), "Wine")
 
 def yeast(filename):
     """
@@ -239,7 +239,7 @@ def yeast(filename):
             else:
                 ignored += 1
 
-    data_to_npz(data, nb_class, os.path.basename(filename), "Yeast")
+    data_to_npz(data, nb_class, os.path.dirname(filename), "Yeast")
 
 def abalone(filename, pos_cl=10):
     """
@@ -272,7 +272,7 @@ def abalone(filename, pos_cl=10):
             else:
                 ignored += 1
 
-    data_to_npz(data, nb_class, os.path.basename(filename), "Abalone%d"%pos_cl)
+    data_to_npz(data, nb_class, os.path.dirname(filename), "Abalone%d"%pos_cl)
 
 def pageblocks(filename, pos_classes):
     """
@@ -298,7 +298,7 @@ def pageblocks(filename, pos_classes):
             else:
                 ignored += 1
 
-    data_to_npz(data, nb_class, os.path.basename(filename), "Pageblocks")
+    data_to_npz(data, nb_class, os.path.dirname(filename), "Pageblocks")
 
 def satimage(filename, pos_classes):
     """
@@ -324,30 +324,30 @@ def satimage(filename, pos_classes):
             else:
                 ignored += 1
 
-    data_to_npz(data, nb_class, os.path.basename(filename), "Satimage")
+    data_to_npz(data, nb_class, os.path.dirname(filename), "Satimage")
 
 def data_to_npz(data, nb_class, root_dir, dataset_name, nb_folds=5, test=None):
     """ Do nb_folds random split with 1/4 all data in test (if not provided), 1/3 remaining in valid of data """
 
     dataset = {"nb_class": nb_class}
 
-    for feat_i in range(data.shape[1]-1):
-        if data[:, feat_i].max() != 1 and data[:, feat_i].min() != 0:
+    for feat_i in range(1, data.shape[1]):
+        if data[:, feat_i].max() != 1 or data[:, feat_i].min() != 0:
             data[:, feat_i] = ((data[:, feat_i] - data[:, feat_i].min())
-                               (data[:, feat_i].max() - data[:, feat_i].min()))
+                               /(data[:, feat_i].max() - data[:, feat_i].min()))
 
     for fold_i in range(nb_folds):
         fold = {"train": {}, "valid": {}, "test": {}}
 
         if test is None:
             test, data = np.vsplit(data[np.random.permutation(data.shape[0])],
-                                   (data.shape[0]//4))
+                                   (data.shape[0]//4, ))
 
         fold["test"]["exemples"] = test[:, 1:]
         fold["test"]["labels"] = test[:, 0].astype(int)
 
         valid, train = np.vsplit(data[np.random.permutation(data.shape[0])],
-                                 (data.shape[0]//3))
+                                 (data.shape[0]//3, ))
 
         fold["train"]["exemples"] = train[:, 1:]
         fold["train"]["labels"] = train[:, 0].astype(int)
@@ -355,6 +355,6 @@ def data_to_npz(data, nb_class, root_dir, dataset_name, nb_folds=5, test=None):
         fold["valid"]["exemples"] = valid[:, 1:]
         fold["valid"]["labels"] = valid[:, 0].astype(int)
 
-        dataset["fold%d"%fold_i].append(fold)
+        dataset["fold%d"%fold_i] = fold
 
     np.savez("%s/%s.npz"%(root_dir, dataset_name), dataset=dataset)
