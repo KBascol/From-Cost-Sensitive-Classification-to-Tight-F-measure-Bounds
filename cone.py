@@ -9,7 +9,7 @@ from time import time
 import numpy as np
 import skimage.io
 import skimage.transform
-from scipy.optimize import fmin_cobyla
+from scipy.optimize import linprog
 
 import utils
 import classifier
@@ -271,27 +271,22 @@ def mclass_m(conf_mat, mmin=False, beta=1):
                        for class_i in range(nb_class)])
 
     if mmin:
-        alpha = lambda a: a[0]-np.sum(a[1:])
-        init_guess = np.zeros(nb_class)
-        init_guess[1:nb_class] = conf_mat[1:nb_class].sum(axis=1)
+        lin_coeff = np.full_like(e_vect, -1)
+        lin_coeff[0] = 1
     else:
-        alpha = lambda a: np.sum(a[1:])-a[0]
-        init_guess = np.zeros(nb_class)
-        init_guess[0] = conf_mat[0].sum()
+        lin_coeff = np.full_like(e_vect, 1)
+        lin_coeff[0] = -1
 
-    all_pos = conf_mat[1:].sum()
-    c1_num = beta**2*all_pos+e_vect[0]
+    tp_vect = conf_mat.sum(axis=1)-np.diagonal(conf_mat)
 
-    constrains = [] # >= 0 constants
-    constrains.append(lambda a: -a[1:].sum()*c1_num/(all_pos-a[1:].sum()+10**(-9))-a[0])
+    bounds = [(-e_vect[cl_i], tp_vect[cl_i]) for cl_i in range(nb_class)]
 
-    for class_i in range(nb_class):
-        constrains.append(lambda a: a[class_i]-e_vect[class_i])
-        constrains.append(lambda a: conf_mat[class_i, class_i]-a[class_i])
+    ineq_coeff = np.ones_like(e_vect)
+    ineq_coeff[1:] = (beta**2*conf_mat[1:].sum()+e_vect[0])/(tp_vect[1:].sum()+10**(-9))
 
-    opti_alpha = fmin_cobyla(alpha, init_guess, constrains, maxfun=10000)
+    res = linprog(lin_coeff, A_ub=[ineq_coeff], b_ub=[[0]], bounds=bounds)
 
-    return opti_alpha[0]-opti_alpha[1:].sum()+e_vect[0]-e_vect[1:].sum()
+    return res.x[0]-res.x[1:].sum()+e_vect[0]-e_vect[1:].sum()
 
 def compute_weights(t_value, nb_class, beta=1.0):
     """ Compute class weights """
@@ -370,8 +365,10 @@ def find_next_cone(saved_cones, cones_t, possible_next_t, possible_next_fm, tmin
 
     return (prevt_l+prevt_r)/2, possible_next_fm[inter_i], possible_next_t, possible_next_fm
 
-def outputs_to_json(file_path, dataset, c_value=None):
-    """ get json files from grid results file """
+def outputs_to_json(file_path, dataset, classif, c_value=None):
+    """ Create json file for visualization"""
+
+    file_path = file_path.format(dataset, classif)
 
     results = np.load(file_path).item()
 
@@ -385,7 +382,7 @@ def outputs_to_json(file_path, dataset, c_value=None):
         conf_mats = results[c_val]["confusions"]["train"]
 
         to_json = {"points":[], "P":int(conf_mats[0][1].sum()), "N":int(conf_mats[0][0].sum()),
-                   "beta":1.0, "C":c_val, "dataset":dataset}
+                   "beta":1.0, "C":c_val, "dataset":dataset, "classif":classif}
 
         for conf_i, conf_mat in enumerate(conf_mats):
             to_json["points"].append({"t":float(results[c_val]["t_values"][conf_i]),
