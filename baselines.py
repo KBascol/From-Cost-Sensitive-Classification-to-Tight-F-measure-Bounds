@@ -20,7 +20,7 @@ def run_algo(data, nb_class, c_val, argv):
     conf_mats = outputs["confusions"]
     preds = outputs["predictions"]
 
-    if argv.classif.lower() == "i.r.":
+    if argv.classif.lower() == "ir":
         # class weight = 1 - <class proportion>
         class_w = {class_i:1-(data["train"]["labels"] == class_i).sum()/data["train"]["labels"].shape[0]
                    for class_i in range(nb_class)}

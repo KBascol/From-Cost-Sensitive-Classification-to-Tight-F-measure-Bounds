@@ -130,7 +130,7 @@ def get_results_fm(result_file, nb_steps, folds=None, beta=1.0, tune_thresh=Fals
         fmeas[fold_i] = utils.micro_fmeasure(test_conf, beta)
 
     fmeas_mean = fmeas.mean()*100
-    std_dev = np.sqrt(fmeas.var())
+    std_dev = np.sqrt(fmeas.var())*100
 
     log.info("AVERAGE: %f STANDARD DEV: %f", fmeas_mean, std_dev)
 
@@ -163,7 +163,7 @@ def paper_table(base_dir, dataset_order, methods_order, beta=1.0,
         elif classif.lower() == "linear_svm":
             header += " & SVM"
 
-        if meth.lower() == "i.r.":
+        if meth.lower() == "ir":
             header += "$_{I.R.}$"
         elif meth.lower() == "parambath":
             header += "$_{P}$"
@@ -342,9 +342,9 @@ def fm_vs_nbclassif(root_dir, dataset, max_step=19, classif="linear_svm", bounds
             best_fm_b = np.zeros(2, dtype=np.float32)
 
         if baseline_ir:
-            ir_res = np.load(file_path%"i.r.").item()
-            assert len(cone_res) == len(ir_res), "Not the same C in cone and i.r."
-            assert not [c_val for c_val in cone_res if c_val not in ir_res], "C in cone not in i.r."
+            ir_res = np.load(file_path%"ir").item()
+            assert len(cone_res) == len(ir_res), "Not the same C in cone and ir"
+            assert not [c_val for c_val in cone_res if c_val not in ir_res], "C in cone not in ir"
             best_fm_i = np.zeros(2, dtype=np.float32)
 
         # Search best C for each method

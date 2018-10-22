@@ -67,10 +67,10 @@ def get_algo(argv):
     if argv.algo.lower() == "bisection":
         return bisection
 
-    if argv.algo.lower() == "baseline" or argv.algo.lower() == "i.r.":
+    if argv.algo.lower() == "baseline" or argv.algo.lower() == "ir":
         return baselines
 
-    log.error("Unknown algorithm %s. Algo available: cone, parambath, bisection, baseline, i.r.", argv.algo)
+    log.error("Unknown algorithm %s. Algo available: cone, parambath, bisection, baseline, ir", argv.algo)
     sys.exit(0)
 
 if __name__ == "__main__":
@@ -79,7 +79,7 @@ if __name__ == "__main__":
 
     PARSER.add_argument("--dataset", help="Dataset file", type=str, required=True)
     PARSER.add_argument("--log_dir", help="Logs directory", type=str, required=True)
-    PARSER.add_argument("--algo", help="(cone|parambath|baseline|i.r.)", type=str, required=True)
+    PARSER.add_argument("--algo", help="(cone|parambath|baseline|ir)", type=str, required=True)
 
     # not required options
     PARSER.add_argument("--C_grid", help="Tested C", metavar="C",
