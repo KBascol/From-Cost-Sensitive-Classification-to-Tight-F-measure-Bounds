@@ -118,7 +118,12 @@ def get_results_fm(result_file, nb_steps, folds=None, beta=1.0, tune_thresh=Fals
                     valid_fm = [fm_tmp, c_val, c_results["t_values"][conf_i], thres_tmp]
 
         c_results = results[valid_fm[1]]
-        t_index = np.where(c_results["t_values"] == valid_fm[2])[0][0]
+        t_index = np.where(c_results["t_values"] == valid_fm[2])[0]
+
+        if t_index.shape[0] != 0:
+            t_index = t_index[0]
+        else:
+            t_index = 0
 
         if tune_thresh:
             test_conf = utils.thresh_conf(c_results["predictions"]["test"][t_index],
