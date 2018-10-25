@@ -6,7 +6,7 @@ import numpy as np
 
 import classifier
 
-def run_algo(data, nb_class, c_val, argv):
+def run_algo(data, nb_class, hparam, argv):
     """ Use Parambath et al. (2014) algorithm on given options """
 
     # grid on t: covers all space with half a step at each extremity
@@ -28,7 +28,7 @@ def run_algo(data, nb_class, c_val, argv):
     for t_val_i, t_val in enumerate(t_values):
         class_w = compute_weights(t_val, nb_class, argv.beta)
 
-        classif = classifier.get_classifier(argv, c_val, class_w)
+        classif = classifier.get_classifier(argv, hparam, class_w)
 
         classif.fit(data["train"]["exemples"], data["train"]["labels"])
 

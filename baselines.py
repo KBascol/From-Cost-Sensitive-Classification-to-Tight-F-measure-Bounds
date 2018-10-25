@@ -6,7 +6,7 @@ import numpy as np
 
 import classifier
 
-def run_algo(data, nb_class, c_val, argv):
+def run_algo(data, nb_class, hparam, argv):
     """ Use baseline algorithm on given options """
 
     outputs = {"confusions": {"train": np.zeros((1, nb_class, nb_class), dtype=int),
@@ -27,7 +27,7 @@ def run_algo(data, nb_class, c_val, argv):
     else:
         class_w = {class_i:1.0 for class_i in range(nb_class)}
 
-    classif = classifier.get_classifier(argv, c_val, class_w)
+    classif = classifier.get_classifier(argv, hparam, class_w)
 
     classif.fit(data["train"]["exemples"], data["train"]["labels"])
 

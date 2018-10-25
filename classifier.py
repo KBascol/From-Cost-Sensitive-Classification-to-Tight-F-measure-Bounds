@@ -16,18 +16,18 @@ from sklearn.linear_model import LogisticRegression
 from dca_ersvm import ERSVM as DERSVM
 from h_ersvm import HeuristicERSVM as HERSVM
 
-def get_classifier(argv, c_val, class_weight):
+def get_classifier(argv, hparam, class_weight):
     """ return classifier with selected arguments """
 
     if argv.classif == "linear_svm":
-        return LinearSVC(C=c_val, class_weight=class_weight,
+        return LinearSVC(C=hparam, class_weight=class_weight,
                          loss="hinge", max_iter=500000)
 
     if argv.classif == "logi_reg":
-        return LogisticRegression(C=c_val, class_weight=class_weight)
+        return LogisticRegression(C=hparam, class_weight=class_weight)
 
     if argv.classif == "random_forest":
-        return RandomForestClassifier(class_weight=class_weight)
+        return RandomForestClassifier(class_weight=class_weight, max_depth=hparam)
 
     if argv.classif == "heuristic_ERSVM":
         assert argv.nb_features > 0, "Number of features required for Robust SVM"
@@ -39,7 +39,7 @@ def get_classifier(argv, c_val, class_weight):
 
     match_svc = re.match("SVC_([A-Za-z]+)", argv.classif)
     if match_svc:
-        return SVC(C=c_val, class_weight=class_weight, kernel=match_svc.group(1), max_iter=500000)
+        return SVC(C=hparam, class_weight=class_weight, kernel=match_svc.group(1), max_iter=500000)
 
     log.error("Unknown classifier %s.", argv.classif)
     sys.exit(0)
