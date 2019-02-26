@@ -113,7 +113,7 @@ if __name__ == "__main__":
                         type=int, nargs="+", default=list(range(5)))
     PARSER.add_argument("--max_step", help="Maximum number of trained classifiers",
                         type=int, default=19)
-    PARSER.add_argument("--classif", help="Classifier (logi_reg|linear_svm|SVC_(linear|poly|rbf|sigmoid)|random_forest)",
+    PARSER.add_argument("--classif", help="Classifier (logi_reg|linear_svm|SVC_(linear|poly|rbf|sigmoid|precomputed)|random_forest)",
                         type=str, default="linear_svm")
     PARSER.add_argument("--save_predictions", action='store_true',
                         help="Save all predictions (required for thresholding, warning: results from large dataset can be heavy)")
@@ -141,5 +141,10 @@ if __name__ == "__main__":
     # classifier-specific options
     PARSER.add_argument("--nb_features", help="if classif is DCA_ERSVM or H_ERSVM: number of features in dataset",
                         type=int, default=0)
+    PARSER.add_argument("--kernel", help="if classif is SVC_precomputed: type of kernel (rbf)",
+                        type=str, default="rbf")
+    PARSER.add_argument("--gamma", type=float, narg="+", default=[10**exp for exp in range(-2, 3)],
+                        help="if classif is SVC_precomputed: gamma used in kernel computation"\
+                             "(same as https://scikit-learn.org/stable/modules/svm.html#svm-kernels)")
 
     experiment(PARSER.parse_args())
