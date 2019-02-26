@@ -319,11 +319,14 @@ def find_next_cone(saved_cones, cones_t, possible_next_t, possible_next_fm, tmin
 
     double_fm = np.repeat(saved_cones[:-1, [0]], 2, axis=1)
 
-    # print("CONE", cone_i)
     # all (t, fm) couple of all the intesections of the last cone with the other cones and y=1
     for side in [2, 3]:
         t_inter = ((saved_cones[:-1, [4, 5]]-saved_cones[-1, side+2])
                    /(saved_cones[-1, side]-saved_cones[:-1, [2, 3]]))
+
+        # Handle specific case
+        t_inter = np.nan_to_num(t_inter)
+        t_inter[t_inter[:, 1] == 0][:, 1] = 1
 
         t_inter = np.clip(t_inter, tmin, tmax)
 
@@ -331,13 +334,9 @@ def find_next_cone(saved_cones, cones_t, possible_next_t, possible_next_fm, tmin
 
         # keep only the couples with fm > fm of cone
         keep_inter = (fm_inter >= saved_cones[-1, 0])*(fm_inter >= double_fm)
-        # print(keep_inter)
-        # print(t_inter, fm_inter)
 
         possible_next_t = np.concatenate([possible_next_t, t_inter[keep_inter].reshape(-1)])
         possible_next_fm = np.concatenate([possible_next_fm, fm_inter[keep_inter].reshape(-1)])
-
-    # print(possible_next_t, possible_next_fm)
 
     out_cones = np.zeros_like(possible_next_t, dtype=np.bool)
 
