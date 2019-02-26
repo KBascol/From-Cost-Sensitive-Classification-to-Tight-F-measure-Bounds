@@ -34,7 +34,7 @@ def experiment(argv):
 
         results = {}
 
-        if agrv.classif = "random_forest":
+        if argv.classif == "random_forest":
             grid_hparam = argv.depth_grid
         else:
             grid_hparam = argv.C_grid
