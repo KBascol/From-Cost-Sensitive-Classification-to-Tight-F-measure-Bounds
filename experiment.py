@@ -14,10 +14,12 @@ import baselines
 import parambath
 import bisection
 
+import kernel
+
 def experiment(argv):
     """ Hanlde exeperience corresponding to options """
 
-    dataset = np.load(argv.dataset)['dataset'].item()
+    base_dataset = np.load(argv.dataset)['dataset'].item()
     dataset_name = os.path.basename(argv.dataset).replace(".npz", "")
 
     algo = get_algo(argv)
@@ -29,38 +31,54 @@ def experiment(argv):
     except FileExistsError:
         pass
 
-    for fold_i in argv.fold_grid:
-        log.info("Algo %s, Dataset %s fold #%d", argv.algo, dataset_name, fold_i)
+    if argv.classif.endswith("precomputed"):
+        grid_kernel = kernel.get_kernel_grid(argv)
+    else:
+        grid_kernel = [{"type": None}]
 
-        results = {}
-
-        if agrv.classif = "random_forest":
-            grid_hparam = argv.depth_grid
+    for kernel_param in grid_kernel:
+        if kernel_param["type"] is not None:
+            dataset = kernel.kernelize(base_dataset, kernel_param)
         else:
-            grid_hparam = argv.C_grid
+            dataset = base_dataset
 
-        for hparam in grid_hparam:
-            log.info("\t HP=%f", hparam)
+        for fold_i in argv.fold_grid:
+            log.info("Algo %s, Dataset %s fold #%d", argv.algo, dataset_name, fold_i)
+
+            results = {}
+
+            if argv.classif == "random_forest":
+                grid_hparam = argv.depth_grid
+            else:
+                grid_hparam = argv.C_grid
+
+            for hparam in grid_hparam:
+                log.info("\t HP=%f", hparam)
 
 
-            if argv.save_states:
-                states_path = results_path+"/states_fold%d/hp%f"%(fold_i, hparam)
-                try:
-                    os.makedirs(states_path)
-                except FileExistsError:
-                    pass
-                argv.save_states = states_path
+                if argv.save_states:
+                    states_path = results_path+"/states_fold%d/hp%f"%(fold_i, hparam)
+                    try:
+                        os.makedirs(states_path)
+                    except FileExistsError:
+                        pass
+                    argv.save_states = states_path
 
-            results[hparam] = algo.run_algo(dataset["fold%d"%fold_i], dataset["nb_class"],
-                                            hparam, argv)
+                results[hparam] = algo.run_algo(dataset["fold%d"%fold_i], dataset["nb_class"],
+                                                hparam, argv)
 
-            if not argv.save_predictions:
-                del results[hparam]["predictions"]
+                if not argv.save_predictions:
+                    del results[hparam]["predictions"]
 
-            log.debug(results[hparam])
+                log.debug(results[hparam])
 
-        np.save(results_path+"/%s_%s_%s_fold%d.npy"%(argv.algo, argv.classif, dataset_name, fold_i),
-                results)
+            if kernel_param["type"] is not None:
+                save_name = "%s_%s_%s_%s_fold%d.npy"%(argv.algo, argv.classif, dataset_name,
+                                                      kernel_param["label"], fold_i)
+            else:
+                save_name = "%s_%s_%s_fold%d.npy"%(argv.algo, argv.classif, dataset_name, fold_i)
+
+            np.save(os.path.join(results_path, save_name), results)
 
 def get_algo(argv):
     """ get algorithm module """
