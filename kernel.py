@@ -23,10 +23,24 @@ def kernelize(fold, kernel):
 def kernel_func(data, train_data, kernel):
     """ apply given kernel on a subset """
 
-    nb_feat = data.shape[1]
-
     if kernel["type"] == "precomputed_rbf":
-        dist = ((data.reshape(-1, 1, nb_feat)-train_data.reshape(1, -1, nb_feat))**2).sum(axis=2)
+        nb_feat = data.shape[1]
+
+        train_size = train_data.shape[0]
+
+        dist = np.empty(data.shape[0], train_size)
+
+        remaining = train_size%10000
+        nb_iter = train_size//10000
+
+        data = data.reshape(-1, 1, nb_feat)
+        train_data = train_data.reshape(1, -1, nb_feat)
+
+        for iter_i in range(nb_iter):
+            dist[:, iter_i*10000:(iter_i+1)*10000] = ((data-train_data[:, iter_i*10000:(iter_i+1)*10000])**2).sum(axis=2)
+
+        if remaining:
+            dist[nb_iter*10000:] = ((data-train_data[:, nb_iter*10000:])**2).sum(axis=2)
 
         return np.exp(-kernel["gamma"]*dist)
 
