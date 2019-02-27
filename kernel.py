@@ -26,9 +26,9 @@ def kernel_func(data, train_data, kernel):
     nb_feat = data.shape[1]
 
     if kernel["type"] == "precomputed_rbf":
-        return np.exp(-kernel["gamma"]*np.linalg.norm(data.reshape(-1, 1, nb_feat)
-                                                      -train_data.reshape(1, -1, nb_feat),
-                                                      axis=2))
+        dist = ((data.reshape(-1, 1, nb_feat)-train_data.reshape(1, -1, nb_feat))**2).sum(axis=2)
+
+        return np.exp(-kernel["gamma"]*dist)
 
     raise ValueError("Kernel %s is not implemented yet."%kernel["type"])
 
