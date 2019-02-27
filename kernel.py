@@ -4,41 +4,23 @@
 
 import numpy as np
 
-def kernelize(dataset, kernel):
+def kernelize(fold, kernel):
     """ apply kernel to dataset """
 
-    kernel_data = {"nb_class": dataset["nb_class"]}
+    train_examples = fold["train"]["exemples"]
 
-    nb_folds = len(dataset)-1
+    k_fold = {}
 
-    train_size = 0
-    for fold_i in range(nb_folds):
-        train_size += dataset["fold%d"%fold_i]["train"]["exemples"].shape[0]
+    for subset in ["train", "valid", "test"]:
+        k_fold[subset] = {"exemples": np.empty((fold[subset]["exemples"].shape[0],
+                                                train_examples.shape[0])),
+                          "labels":fold[subset]["labels"]}
 
-    for fold_i in range(nb_folds):
-        kernel_data["fold%d"%fold_i] = {}
-        k_fold = kernel_data["fold%d"%fold_i]
+        k_fold[subset]["exemples"] = kernel_func(fold[subset]["exemples"], train_examples, kernel)
 
-        fold = dataset["fold%d"%fold_i]
+    return k_fold
 
-        for subset in ["train", "valid", "test"]:
-            k_fold[subset] = {"exemples": np.empty((fold[subset]["exemples"].shape[0], train_size)),
-                              "labels":fold[subset]["labels"]}
-
-            k_examples = k_fold[subset]["exemples"]
-
-            slice_i = 0
-            for loop_fold_i in range(nb_folds):
-                train_examples = dataset["fold%d"%loop_fold_i]["train"]["exemples"]
-
-                k_examples[slice_i:slice_i+train_examples.shape[0]] = kernel_function(fold[subset]["exemples"],
-                                                                                      train_examples,
-                                                                                      kernel)
-                slice_i += train_examples.shape[0]
-
-    return kernel_data
-
-def kernel_function(data, train_data, kernel):
+def kernel_func(data, train_data, kernel):
     """ apply given kernel on a subset """
 
     nb_feat = data.shape[1]

@@ -19,7 +19,7 @@ import kernel
 def experiment(argv):
     """ Hanlde exeperience corresponding to options """
 
-    base_dataset = np.load(argv.dataset)['dataset'].item()
+    dataset = np.load(argv.dataset)['dataset'].item()
     dataset_name = os.path.basename(argv.dataset).replace(".npz", "")
 
     algo = get_algo(argv)
@@ -36,13 +36,13 @@ def experiment(argv):
     else:
         grid_kernel = [{"type": None}]
 
-    for kernel_param in grid_kernel:
-        if kernel_param["type"] is not None:
-            dataset = kernel.kernelize(base_dataset, kernel_param)
-        else:
-            dataset = base_dataset
+    for fold_i in argv.fold_grid:
+        for kernel_param in grid_kernel:
+            fold = dataset["fold%d"%fold_i]
 
-        for fold_i in argv.fold_grid:
+            if kernel_param["type"] is not None:
+                fold = kernel.kernelize(fold, kernel_param)
+
             log.info("Algo %s, Dataset %s fold #%d", argv.algo, dataset_name, fold_i)
 
             results = {}
@@ -64,8 +64,7 @@ def experiment(argv):
                         pass
                     argv.save_states = states_path
 
-                results[hparam] = algo.run_algo(dataset["fold%d"%fold_i], dataset["nb_class"],
-                                                hparam, argv)
+                results[hparam] = algo.run_algo(fold, dataset["nb_class"], hparam, argv)
 
                 if not argv.save_predictions:
                     del results[hparam]["predictions"]
@@ -143,7 +142,7 @@ if __name__ == "__main__":
                         type=int, default=0)
     PARSER.add_argument("--kernel", help="if classif is SVC_precomputed: type of kernel (rbf)",
                         type=str, default="rbf")
-    PARSER.add_argument("--gamma", type=float, narg="+", default=[10**exp for exp in range(-2, 3)],
+    PARSER.add_argument("--gamma_grid", type=float, nargs="+", default=[10**exp for exp in range(-2, 3)],
                         help="if classif is SVC_precomputed: gamma used in kernel computation"\
                              "(same as https://scikit-learn.org/stable/modules/svm.html#svm-kernels)")
 
