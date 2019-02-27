@@ -24,23 +24,44 @@ def kernel_func(data, train_data, kernel):
     """ apply given kernel on a subset """
 
     if kernel["type"] == "precomputed_rbf":
-        nb_feat = data.shape[1]
+        max_size = 10000
 
-        train_size = train_data.shape[0]
+        dist = np.empty((data.shape[0], train_data.shape[0]), dtype=np.float32)
 
-        dist = np.empty(data.shape[0], train_size)
+        train_remaining = train_data.shape[0]%max_size
+        train_nb_iter = train_data.shape[0]//max_size
 
-        remaining = train_size%10000
-        nb_iter = train_size//10000
+        data_nb_iter = data.shape[0]//max_size
 
-        data = data.reshape(-1, 1, nb_feat)
-        train_data = train_data.reshape(1, -1, nb_feat)
+        data = data.reshape(-1, 1, data.shape[1])
+        train_data = train_data.reshape(1, -1, train_data.shape[1])
 
-        for iter_i in range(nb_iter):
-            dist[:, iter_i*10000:(iter_i+1)*10000] = ((data-train_data[:, iter_i*10000:(iter_i+1)*10000])**2).sum(axis=2)
+        for data_iter_i in range(data_nb_iter):
+            data_start = data_iter_i*max_size
+            data_end = data_start+max_size
 
-        if remaining:
-            dist[nb_iter*10000:] = ((data-train_data[:, nb_iter*10000:])**2).sum(axis=2)
+            for train_iter_i in range(train_nb_iter):
+                train_start = train_iter_i*max_size
+                train_end = train_start+max_size
+
+                dist[data_start:data_end, train_start:train_end] = ((data[data_start:data_end]
+                                                                     -train_data[:, train_start:train_end])**2).sum(axis=2)
+
+            if train_remaining:
+                dist[data_start:data_end, train_nb_iter*max_size:] = ((data[data_start:data_end]
+                                                                       -train_data[:, train_nb_iter*max_size:])**2).sum(axis=2)
+
+        if data.shape[0]%max_size:
+            for train_iter_i in range(train_nb_iter):
+                train_start = train_iter_i*max_size
+                train_end = train_start+max_size
+
+                dist[data_nb_iter*max_size:, train_start:train_end] = ((data[data_nb_iter*max_size:]
+                                                                        -train_data[:, train_start:train_end])**2).sum(axis=2)
+
+            if train_remaining:
+                dist[data_nb_iter*max_size:, train_nb_iter*max_size:] = ((data[data_nb_iter*max_size:]
+                                                                          -train_data[:, train_nb_iter*max_size:])**2).sum(axis=2)
 
         return np.exp(-kernel["gamma"]*dist)
 
