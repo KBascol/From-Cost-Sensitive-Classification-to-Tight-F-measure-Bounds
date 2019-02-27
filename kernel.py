@@ -35,5 +35,6 @@ def kernel_func(data, train_data, kernel):
 def get_kernel_grid(argv):
     """ return kernel tuning loop values """
 
-    return [{"type": argv.kernel, "gamma": gamma, "label":"rbf_g%s"%(str(gamma).replace(".", "d"))}
+    return [{"type": argv.kernel, "gamma": gamma, "label":"%s_g%s"%(argv.kernel,
+                                                                    str(gamma).replace(".", "d"))}
             for gamma in argv.gamma_grid]
