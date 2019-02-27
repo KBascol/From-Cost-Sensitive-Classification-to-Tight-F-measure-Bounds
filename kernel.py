@@ -25,7 +25,7 @@ def kernel_func(data, train_data, kernel):
 
     nb_feat = data.shape[1]
 
-    if kernel["type"] == "rbf":
+    if kernel["type"] == "precomputed_rbf":
         return np.exp(-kernel["gamma"]*np.linalg.norm(data.reshape(-1, 1, nb_feat)
                                                       -train_data.reshape(1, -1, nb_feat),
                                                       axis=2))
@@ -35,8 +35,5 @@ def kernel_func(data, train_data, kernel):
 def get_kernel_grid(argv):
     """ return kernel tuning loop values """
 
-    if argv.kernel == "rbf":
-        return [{"type":"rbf", "gamma": gamma, "label":"rbf_g%s"%(str(gamma).replace(".", "d"))}
-                for gamma in argv.gamma_grid]
-
-    raise ValueError("Kernel %s is not implemented yet."%argv.kernel)
+    return [{"type": argv.kernel, "gamma": gamma, "label":"rbf_g%s"%(str(gamma).replace(".", "d"))}
+            for gamma in argv.gamma_grid]

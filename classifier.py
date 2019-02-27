@@ -2,8 +2,6 @@
     Manage classifiers
 """
 
-
-import re
 import sys
 import logging as log
 
@@ -37,10 +35,13 @@ def get_classifier(argv, hparam, class_weight, gamma="auto"):
         assert argv.nb_features > 0, "Number of features required for Robust SVM"
         return DERSVM(class_weight=class_weight, initial_w=np.random.rand(argv.nb_features))
 
-    match_svc = re.match("SVC_([A-Za-z]+)", argv.classif)
-    if match_svc:
-        return SVC(C=hparam, class_weight=class_weight, kernel=match_svc.group(1), max_iter=500000,
-                   gamma=gamma)
+    if argv.classif == "SVC":
+        if argv.kernel.startswith("precomputed"):
+            kernel = "precomputed"
+        else:
+            kernel = argv.kernel
+
+        return SVC(C=hparam, class_weight=class_weight, kernel=kernel, max_iter=500000, gamma=gamma)
 
     log.error("Unknown classifier %s.", argv.classif)
     sys.exit(0)

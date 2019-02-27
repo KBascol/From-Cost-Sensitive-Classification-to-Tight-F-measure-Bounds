@@ -31,16 +31,16 @@ def experiment(argv):
     except FileExistsError:
         pass
 
-    if argv.classif.endswith("precomputed"):
+    if argv.classif.startswith("SVC"):
         grid_kernel = kernel.get_kernel_grid(argv)
     else:
-        grid_kernel = [{"type": None, "gamma": "auto"}]
+        grid_kernel = [{"type": "", "gamma": "auto"}]
 
     for fold_i in argv.fold_grid:
         for kernel_param in grid_kernel:
             fold = dataset["fold%d"%fold_i]
 
-            if kernel_param["type"] is not None:
+            if kernel_param["type"] == "precomputed_rbf":
                 fold = kernel.kernelize(fold, kernel_param)
 
             log.info("Algo %s, Dataset %s fold #%d", argv.algo, dataset_name, fold_i)
@@ -54,7 +54,6 @@ def experiment(argv):
 
             for hparam in grid_hparam:
                 log.info("\t HP=%f", hparam)
-
 
                 if argv.save_states:
                     states_path = results_path+"/states_fold%d/hp%f"%(fold_i, hparam)
@@ -72,7 +71,7 @@ def experiment(argv):
 
                 log.debug(results[hparam])
 
-            if kernel_param["type"] is not None:
+            if argv.classif.startswith("SVC"):
                 save_name = "%s_%s_%s_%s_fold%d.npy"%(argv.algo, argv.classif, dataset_name,
                                                       kernel_param["label"], fold_i)
             else:
@@ -113,7 +112,7 @@ if __name__ == "__main__":
                         type=int, nargs="+", default=list(range(5)))
     PARSER.add_argument("--max_step", help="Maximum number of trained classifiers",
                         type=int, default=19)
-    PARSER.add_argument("--classif", help="Classifier (logi_reg|linear_svm|SVC_(linear|poly|rbf|sigmoid|precomputed)|random_forest)",
+    PARSER.add_argument("--classif", help="Classifier (logi_reg|linear_svm|SVC|random_forest)",
                         type=str, default="linear_svm")
     PARSER.add_argument("--save_predictions", action='store_true',
                         help="Save all predictions (required for thresholding, warning: results from large dataset can be heavy)")
@@ -141,10 +140,10 @@ if __name__ == "__main__":
     # classifier-specific options
     PARSER.add_argument("--nb_features", help="if classif is DCA_ERSVM or H_ERSVM: number of features in dataset",
                         type=int, default=0)
-    PARSER.add_argument("--kernel", help="if classif is SVC_precomputed: type of kernel (rbf)",
-                        type=str, default="rbf")
+    PARSER.add_argument("--kernel", help="if classif is SVC: type of kernel to use",
+                        type=str, default="precomputed_rbf")
     PARSER.add_argument("--gamma_grid", type=float, nargs="+", default=[10**exp for exp in range(-2, 3)],
-                        help="if classif is SVC_*: gamma used in kernel computation"\
+                        help="if classif is SVC: gamma used in kernel computation"\
                              "(see https://scikit-learn.org/stable/modules/svm.html#svm-kernels)")
 
     experiment(PARSER.parse_args())
