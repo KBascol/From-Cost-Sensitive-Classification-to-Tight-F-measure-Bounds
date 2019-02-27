@@ -16,7 +16,7 @@ from sklearn.linear_model import LogisticRegression
 from dca_ersvm import ERSVM as DERSVM
 from h_ersvm import HeuristicERSVM as HERSVM
 
-def get_classifier(argv, hparam, class_weight):
+def get_classifier(argv, hparam, class_weight, gamma="auto"):
     """ return classifier with selected arguments """
 
     if argv.classif == "linear_svm":
@@ -39,7 +39,8 @@ def get_classifier(argv, hparam, class_weight):
 
     match_svc = re.match("SVC_([A-Za-z]+)", argv.classif)
     if match_svc:
-        return SVC(C=hparam, class_weight=class_weight, kernel=match_svc.group(1), max_iter=500000)
+        return SVC(C=hparam, class_weight=class_weight, kernel=match_svc.group(1), max_iter=500000,
+                   gamma=gamma)
 
     log.error("Unknown classifier %s.", argv.classif)
     sys.exit(0)

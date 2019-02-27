@@ -14,7 +14,7 @@ from scipy.optimize import linprog
 import utils
 import classifier
 
-def run_algo(data, nb_class, hparam, argv):
+def run_algo(data, nb_class, hparam, argv, gamma="auto"):
     """ Use CONE algorithm on given options """
 
     overall_timer = time()
@@ -56,7 +56,7 @@ def run_algo(data, nb_class, hparam, argv):
 
         log.debug("Initialize classifier...")
 
-        classif = classifier.get_classifier(argv, hparam, class_w)
+        classif = classifier.get_classifier(argv, hparam, class_w, gamma)
 
         log.debug("Fit classifier...")
         timer_train = time()

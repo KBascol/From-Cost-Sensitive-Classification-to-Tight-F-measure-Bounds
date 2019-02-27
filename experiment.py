@@ -34,7 +34,7 @@ def experiment(argv):
     if argv.classif.endswith("precomputed"):
         grid_kernel = kernel.get_kernel_grid(argv)
     else:
-        grid_kernel = [{"type": None}]
+        grid_kernel = [{"type": None, "gamma": "auto"}]
 
     for fold_i in argv.fold_grid:
         for kernel_param in grid_kernel:
@@ -64,7 +64,8 @@ def experiment(argv):
                         pass
                     argv.save_states = states_path
 
-                results[hparam] = algo.run_algo(fold, dataset["nb_class"], hparam, argv)
+                results[hparam] = algo.run_algo(fold, dataset["nb_class"], hparam, argv,
+                                                kernel_param["gamma"])
 
                 if not argv.save_predictions:
                     del results[hparam]["predictions"]
@@ -143,7 +144,7 @@ if __name__ == "__main__":
     PARSER.add_argument("--kernel", help="if classif is SVC_precomputed: type of kernel (rbf)",
                         type=str, default="rbf")
     PARSER.add_argument("--gamma_grid", type=float, nargs="+", default=[10**exp for exp in range(-2, 3)],
-                        help="if classif is SVC_precomputed: gamma used in kernel computation"\
-                             "(same as https://scikit-learn.org/stable/modules/svm.html#svm-kernels)")
+                        help="if classif is SVC_*: gamma used in kernel computation"\
+                             "(see https://scikit-learn.org/stable/modules/svm.html#svm-kernels)")
 
     experiment(PARSER.parse_args())
