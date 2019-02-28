@@ -142,7 +142,7 @@ if __name__ == "__main__":
                         type=int, default=0)
     PARSER.add_argument("--kernel", help="if classif is SVC: type of kernel to use",
                         type=str, default="precomputed_rbf")
-    PARSER.add_argument("--gamma_grid", type=float, nargs="+", default=[10**exp for exp in range(-2, 3)],
+    PARSER.add_argument("--gamma_grid", type=float, nargs="+", default=[2**exp for exp in range(-8, 9, 2)],
                         help="if classif is SVC: gamma used in kernel computation"\
                              "(see https://scikit-learn.org/stable/modules/svm.html#svm-kernels)")
 
