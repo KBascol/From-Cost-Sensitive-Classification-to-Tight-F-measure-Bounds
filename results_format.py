@@ -108,7 +108,7 @@ def get_results_fm(result_file, nb_steps, folds=None, beta=1.0, tune_thresh=Fals
                     preds = None
                     labels = None
                 else:
-                    preds = c_results["predictions"]["valid"]
+                    preds = c_results["predictions"]["valid"][conf_i]
                     labels = dataset["fold%d"%fold_i]["valid"]["labels"]
 
                 fm_tmp, thres_tmp = utils.comp_fm(c_results["confusions"]["valid"][conf_i], beta,
