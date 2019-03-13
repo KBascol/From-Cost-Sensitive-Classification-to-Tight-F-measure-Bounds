@@ -123,7 +123,7 @@ def get_all_fm(result_file, nb_steps, folds=None, beta=1.0, tune_thresh=False, d
                         preds = None
                         labels = None
                     else:
-                        preds = c_results["predictions"]["valid"]
+                        preds = c_results["predictions"]["valid"][conf_i]
                         labels = dataset["fold%d"%fold_i]["valid"]["labels"]
 
                     fm_tmp, _ = utils.comp_fm(c_results["confusions"]["train"][conf_i], beta)

@@ -46,6 +46,8 @@ def comp_fm(conf_mat, beta=1.0, tune_thresh=False, out=None, label=None):
         for fm_i, thres in enumerate(out):
             if conf_mat.shape[0] > 2:
                 thres = np.max(thres[1:])-thres[0]+1
+            elif thres.shape[0] == 2:
+                thres = thres[0]
 
             fmeas[fm_i] = micro_fmeasure(thresh_conf(out, label, thres), beta)
 
