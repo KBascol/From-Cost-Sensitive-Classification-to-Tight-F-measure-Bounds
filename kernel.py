@@ -24,6 +24,7 @@ def kernel_func(data, train_data, kernel):
     """ apply given kernel on a subset """
 
     if kernel["type"] == "precomputed_rbf":
+        # limitate the size of the matrices during kernel computation...
         max_size = 10000
 
         dist = np.empty((data.shape[0], train_data.shape[0]), dtype=np.float32)

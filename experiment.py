@@ -66,7 +66,9 @@ def experiment(argv):
                 results[hparam] = algo.run_algo(fold, dataset["nb_class"], hparam, argv,
                                                 kernel_param["gamma"])
 
-                if not argv.save_predictions:
+                if not argv.save_predictions \
+                   and "predictions" in results[hparam] \
+                   and results[hparam]["predictions"] is not None:
                     del results[hparam]["predictions"]
 
                 log.debug(results[hparam])

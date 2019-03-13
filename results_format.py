@@ -6,6 +6,7 @@ import os
 import sys
 import math
 import logging as log
+from collections import defaultdict
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -68,13 +69,21 @@ def draw_cones(result_file, c_val, algo, secondary_file="", ymax=1, ymin=0, xmax
     else:
         plt.show()
 
-def get_results_fm(result_file, nb_steps, folds=None, beta=1.0, tune_thresh=False, dataset_path=""):
+def get_all_fm(result_file, nb_steps, folds=None, beta=1.0, tune_thresh=False, dataset_path=""):
     """ return best svm in validation on test set for CONE method"""
 
     if folds is None:
         folds = range(5)
 
+    nb_folds = len(folds)
+
     fmeas = np.zeros(len(folds), dtype=np.float64)
+    best_c = []
+
+    fmeas = {"train":[[] for _ in range(nb_folds)],
+             "valid":[[] for _ in range(nb_folds)],
+             "test":[[] for _ in range(nb_folds)],
+             "c_values": None}
 
     if tune_thresh:
         assert os.path.isfile(dataset_path), "Dataset required when tuning threashold"
@@ -82,64 +91,145 @@ def get_results_fm(result_file, nb_steps, folds=None, beta=1.0, tune_thresh=Fals
         dataset = np.load(dataset_path)["dataset"].item()
 
     for fold_i, fold in enumerate(folds):
-        valid_fm = np.zeros(4, dtype=np.float64)
-
         results = np.load(result_file%fold).item()
 
         if "cone" in result_file.lower():
             conf_grid = list(range(nb_steps))
         elif "parambath" in result_file.lower():
             max_index = results[list(results.keys())[0]]["t_values"].shape[0]-1
-
             space_grid = max_index/(nb_steps+1)
             conf_grid = [int(space_grid*i) for i in range(1, nb_steps+1)]
         else:
             conf_grid = [0]
 
-        for c_val in results:
+        if fmeas["c_values"] is None:
+            fmeas["c_values"] = sorted(list(results.keys()))
+
+
+        for c_val_i, c_val in enumerate(fmeas["c_values"]):
             c_results = results[c_val]
+        
+            fmeas["train"][fold_i].append([])
+            fmeas["valid"][fold_i].append([])
+            fmeas["test"][fold_i].append([])
 
             if tune_thresh and "predictions" not in c_results:
                 log.error("Predictions needed when tuning threshold.")
                 sys.exit(0)
 
             for conf_i in conf_grid:
-                if "predictions" not in c_results:
-                    preds = None
-                    labels = None
+                if c_results["confusions"]["train"][conf_i].sum():
+                    if "predictions" not in c_results:
+                        preds = None
+                        labels = None
+                    else:
+                        preds = c_results["predictions"]["valid"]
+                        labels = dataset["fold%d"%fold_i]["valid"]["labels"]
+
+                    fm_tmp, _ = utils.comp_fm(c_results["confusions"]["train"][conf_i], beta)
+
+                    fmeas["train"][fold_i][c_val_i].append(fm_tmp)
+
+                    fm_tmp, thres_tmp = utils.comp_fm(c_results["confusions"]["valid"][conf_i], beta,
+                                                      tune_thresh, preds, labels)
+
+                    fmeas["valid"][fold_i][c_val_i].append(fm_tmp)
+
+                    if tune_thresh:
+                        test_conf = utils.thresh_conf(c_results["predictions"]["test"][conf_i],
+                                                      dataset["fold%d"%fold_i]["test"]["labels"],
+                                                      thres_tmp)
+                    else:
+                        test_conf = c_results["confusions"]["test"][conf_i]
+
+                    fmeas["test"][fold_i][c_val_i].append(utils.micro_fmeasure(test_conf, beta))
                 else:
-                    preds = c_results["predictions"]["valid"]
-                    labels = dataset["fold%d"%fold_i]["valid"]["labels"]
+                    break
 
-                fm_tmp, thres_tmp = utils.comp_fm(c_results["confusions"]["valid"][conf_i], beta,
-                                                  tune_thresh, preds, labels)
+            fmeas["train"][fold_i][c_val_i] = np.array(fmeas["train"][fold_i][c_val_i])
+            fmeas["valid"][fold_i][c_val_i] = np.array(fmeas["valid"][fold_i][c_val_i])
+            fmeas["test"][fold_i][c_val_i] = np.array(fmeas["test"][fold_i][c_val_i])
 
-                if fm_tmp >= valid_fm[0]:
-                    valid_fm = [fm_tmp, c_val, c_results["t_values"][conf_i], thres_tmp]
+    return fmeas
 
-        c_results = results[valid_fm[1]]
-        t_index = np.where(c_results["t_values"] == valid_fm[2])[0]
+def get_results_fm(result_file, nb_steps, folds=None, beta=1.0, tune_thresh=False, dataset_path="",
+                   valid_subset="valid"):
+    """ return best svm in validation on test set for CONE method"""
 
-        if t_index.shape[0] != 0:
-            t_index = t_index[0]
-        else:
-            t_index = 0
+    fmeasures = get_all_fm(result_file, nb_steps, folds, beta, tune_thresh, dataset_path)
 
-        if tune_thresh:
-            test_conf = utils.thresh_conf(c_results["predictions"]["test"][t_index],
-                                          dataset["fold%d"%fold_i]["test"]["labels"],
-                                          valid_fm[3])
-        else:
-            test_conf = c_results["confusions"]["test"][t_index]
+    best_c = []
 
-        fmeas[fold_i] = utils.micro_fmeasure(test_conf, beta)
+    fmeas = np.zeros(len(fmeasures["valid"]))
+
+    for fold_i, valid_fold in enumerate(fmeasures[valid_subset]):
+        best_valid = [-1, -1, -1]
+
+        for c_val_i, c_valid_fm in enumerate(valid_fold):
+            if c_valid_fm.max() > best_valid[0]:
+                best_valid = [c_valid_fm.max(), c_val_i, np.argmax(c_valid_fm)]
+
+        fmeas[fold_i] = fmeasures["test"][fold_i][best_valid[1]][best_valid[2]]
+        best_c.append(fmeasures["c_values"][best_valid[1]])
 
     fmeas_mean = fmeas.mean()*100
     std_dev = np.sqrt(fmeas.var())*100
 
-    log.info("AVERAGE: %f STANDARD DEV: %f", fmeas_mean, std_dev)
+    log.info("AVERAGE: %f STANDARD DEV: %f (C: %s)", fmeas_mean, std_dev, str(best_c))
 
-    return fmeas_mean, std_dev
+    return fmeas_mean, std_dev, best_c
+
+def get_kernel_results_fm(result_file, nb_steps, gammas, folds=None, beta=1.0, tune_thresh=False,
+                          dataset_path="", valid_subset="valid"):
+    """ return best svm in validation on test set for CONE method"""
+
+
+    if folds is None:
+        folds = range(5)
+
+    best_valid = -np.ones((len(folds), len(gammas), 3))
+    fmeas = np.zeros(len(folds))
+
+    best_c = []
+    best_g = []
+    best_v = []
+
+    c_values = None
+
+    for gamma_i, gamma in enumerate(gammas):
+        fmeasures = get_all_fm(result_file.format(str(gamma).replace(".", "d")), nb_steps, folds,
+                               beta, tune_thresh, dataset_path)
+
+        if c_values is None:
+            c_values = fmeasures["c_values"]
+
+        for fold_i, valid_fold in enumerate(fmeasures[valid_subset]):
+            for c_val_i, valid_c in enumerate(valid_fold):
+                if valid_c.max() > best_valid[fold_i, gamma_i, 0]:
+                    best_valid[fold_i, gamma_i] = [valid_c.max(), c_val_i, np.argmax(valid_c)]
+
+
+    for fold_i_i, fold_i in enumerate(folds):
+        best_g_i = np.argmax(best_valid[fold_i_i, :, 0])
+        best_c_i = int(best_valid[fold_i_i, best_g_i, 1])
+        best_t_i = int(best_valid[fold_i_i, best_g_i, 2])
+
+
+        test_fm = get_all_fm(result_file.format(str(gammas[best_g_i]).replace(".", "d")),
+                             nb_steps, [fold_i], beta, tune_thresh, dataset_path)["test"][0]
+
+        fmeas[fold_i_i] = test_fm[best_c_i][best_t_i]
+
+        best_c.append(c_values[best_c_i])
+        best_g.append(gammas[best_g_i])
+        best_v.append(best_valid[fold_i_i, best_g_i, 0])
+
+    fmeas_mean = fmeas.mean()*100
+    std_dev = np.sqrt(fmeas.var())*100
+
+    log.info("AVERAGE: %f STANDARD DEV: %f (C: %s)", fmeas_mean, std_dev, str(best_c))
+
+    return fmeas_mean, std_dev, fmeas, best_v, best_c, best_g
 
 def paper_table(base_dir, dataset_order, methods_order, beta=1.0,
                 nb_steps=19, tune_thresh=False, folds=None, save_file=False):

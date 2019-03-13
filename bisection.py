@@ -72,6 +72,8 @@ def run_algo(data, nb_class, hparam, argv, gamma="auto"):
 
         outputs["confusions"][subset][0] = confusion_matrix(preds, data[subset]["labels"])
 
+    return outputs
+
 def predict(dataset, tuned_classif):
     """ Get tuned prediction """
 
