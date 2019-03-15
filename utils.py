@@ -41,14 +41,16 @@ def comp_fm(conf_mat, beta=1.0, tune_thresh=False, out=None, label=None):
     """ return f-measure and threshold if tuning enable None otherwise """
 
     if tune_thresh:
-        fmeas = np.zeros(len(out))
+        if conf_mat.shape[0] > 2:
+            thresholds = np.max(out[:, 1:], axis=1)-out[:, 0]+1
+        if out.shape[1] == 2:
+            thresholds = out[:, 0]
 
-        for fm_i, thres in enumerate(out):
-            if conf_mat.shape[0] > 2:
-                thres = np.max(thres[1:])-thres[0]+1
-            if thres.shape[0] == 2
-                thres = thres[0]
+        thresholds = np.linspace(thresholds.min(), thresholds.max(), min(10000, out.shape[0]))
 
+        fmeas = np.zeros(thresholds.shape[0])
+
+        for fm_i, thres in enumerate(thresholds):
             fmeas[fm_i] = micro_fmeasure(thresh_conf(out, label, thres), beta)
 
         best_i = np.argmax(fmeas)
@@ -56,6 +58,8 @@ def comp_fm(conf_mat, beta=1.0, tune_thresh=False, out=None, label=None):
 
         if conf_mat.shape[0] > 2:
             thres = np.max(thres[1:])-thres[0]+1
+        if out.shape[1] == 2:
+            thresholds = thres[0]
 
         return (fmeas[best_i], thres)
     else:

@@ -104,7 +104,7 @@ def get_results_fm(result_file, nb_steps, folds=None, beta=1.0, tune_thresh=Fals
                 sys.exit(0)
 
             for conf_i in conf_grid:
-                if "predictions" not in c_results:
+                if "predictions" not in c_results or not tune_thresh:
                     preds = None
                     labels = None
                 else:
