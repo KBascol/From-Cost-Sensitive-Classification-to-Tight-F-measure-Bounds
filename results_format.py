@@ -6,6 +6,7 @@ import os
 import sys
 import math
 import logging as log
+from time import time
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -97,6 +98,8 @@ def get_results_fm(result_file, nb_steps, folds=None, beta=1.0, tune_thresh=Fals
             conf_grid = [0]
 
         for c_val in results:
+            start = time()
+            log.info("fold %d, C=%f", fold_i, c_val)
             c_results = results[c_val]
 
             if tune_thresh and "predictions" not in c_results:
@@ -116,6 +119,8 @@ def get_results_fm(result_file, nb_steps, folds=None, beta=1.0, tune_thresh=Fals
 
                 if fm_tmp >= valid_fm[0]:
                     valid_fm = [fm_tmp, c_val, c_results["t_values"][conf_i], thres_tmp]
+
+            log.info("end C=%f (%fs)", c_val, time()-start)
 
         c_results = results[valid_fm[1]]
         t_index = np.where(c_results["t_values"] == valid_fm[2])[0]
