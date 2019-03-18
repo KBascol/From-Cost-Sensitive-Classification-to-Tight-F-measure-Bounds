@@ -59,7 +59,7 @@ def comp_fm(conf_mat, beta=1.0, tune_thresh=False, out=None, label=None):
         if conf_mat.shape[0] > 2:
             thres = np.max(thres[1:])-thres[0]+1
         if out.shape[1] == 2:
-            thresholds = thres[0]
+            thres = thres[0]
 
         return (fmeas[best_i], thres)
     else:
