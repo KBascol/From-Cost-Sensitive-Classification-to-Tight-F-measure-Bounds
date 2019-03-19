@@ -122,6 +122,11 @@ def get_results_fm(result_file, nb_steps, folds=None, beta=1.0, tune_thresh=Fals
 
             log.info("end C=%f (%fs)", c_val, time()-start)
 
+        if thres_tmp is None:
+            thres_tmp = -1
+
+        log.info("Final validation results: FM: %f; C: %f; t: %f; threshold: %f", *valid_fm)
+
         c_results = results[valid_fm[1]]
         t_index = np.where(c_results["t_values"] == valid_fm[2])[0]
 
