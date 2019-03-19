@@ -46,7 +46,7 @@ def comp_fm(conf_mat, beta=1.0, tune_thresh=False, out=None, label=None):
         if out.shape[1] == 2:
             thresholds = out[:, 0]
 
-        thresholds = np.linspace(thresholds.min(), thresholds.max(), min(10000, out.shape[0]))
+        thresholds = np.percentile(thresholds, np.linspace(0, 1, 1000))
 
         fmeas = np.zeros(thresholds.shape[0])
 
