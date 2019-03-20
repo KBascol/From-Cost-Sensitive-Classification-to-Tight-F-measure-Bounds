@@ -119,6 +119,7 @@ def get_results_fm(result_file, nb_steps, folds=None, beta=1.0, tune_thresh=Fals
 
                 if fm_tmp >= valid_fm[0]:
                     valid_fm = [fm_tmp, c_val, c_results["t_values"][conf_i], thres_tmp]
+                    log.debug("\tBetter valid: FM: %f; t: %f; threshold: %f", *valid_fm)
 
             log.info("end C=%f (%fs)", c_val, time()-start)
 

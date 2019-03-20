@@ -51,7 +51,9 @@ def comp_fm(conf_mat, beta=1.0, tune_thresh=False, out=None, label=None):
         fmeas = np.zeros(thresholds.shape[0])
 
         for fm_i, thres in enumerate(thresholds):
-            fmeas[fm_i] = micro_fmeasure(thresh_conf(out, label, thres), beta)
+            tuned_conf = thresh_conf(out, label, thres)
+
+            fmeas[fm_i] = micro_fmeasure(tuned_conf, beta)
 
         best_i = np.argmax(fmeas)
         thres = out[best_i]

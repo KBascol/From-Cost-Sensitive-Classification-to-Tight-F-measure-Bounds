@@ -17,9 +17,9 @@ def run_algo(data, nb_class, hparam, argv):
     outputs = {"confusions": {"train": np.zeros((argv.max_step, nb_class, nb_class), dtype=int),
                               "valid": np.zeros((argv.max_step, nb_class, nb_class), dtype=int),
                               "test": np.zeros((argv.max_step, nb_class, nb_class), dtype=int)},
-               "predictions": {"train": np.zeros((argv.max_step, data["train"]["labels"].shape[0], nb_class), dtype=int),
-                               "valid": np.zeros((argv.max_step, data["valid"]["labels"].shape[0], nb_class), dtype=int),
-                               "test": np.zeros((argv.max_step, data["test"]["labels"].shape[0], nb_class), dtype=int)},
+               "predictions": {"train": np.zeros((argv.max_step, data["train"]["labels"].shape[0], nb_class), dtype=np.float32),
+                               "valid": np.zeros((argv.max_step, data["valid"]["labels"].shape[0], nb_class), dtype=np.float32),
+                               "test": np.zeros((argv.max_step, data["test"]["labels"].shape[0], nb_class), dtype=np.float32)},
                "t_values": t_values}
 
     conf_mats = outputs["confusions"]
