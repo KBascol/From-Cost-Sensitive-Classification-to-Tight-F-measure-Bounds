@@ -72,7 +72,7 @@ def run_algo(data, nb_class, hparam, argv):
             out_iter = classifier.get_confusion(data, nb_class, subset, classif)
 
             if nb_class == 2:
-                conf_mats[subset][step], preds[subset][step][:, 0] = out_iter
+                conf_mats[subset][step], preds[subset][step, :, 0] = out_iter
             else:
                 conf_mats[subset][step], preds[subset][step] = out_iter
 

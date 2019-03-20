@@ -35,10 +35,8 @@ def run_algo(data, nb_class, hparam, argv):
         out_iter = classifier.get_confusion(data, nb_class, subset, classif)
 
         if nb_class == 2:
-            saved_outs = preds[subset][0][:, 0]
+            conf_mats[subset][0], preds[subset][0, :, 0] = out_iter
         else:
-            saved_outs = preds[subset][0]
-
-        conf_mats[subset][0], saved_outs = out_iter
+            conf_mats[subset][0], preds[subset][0] = out_iter
 
     return outputs
