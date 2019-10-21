@@ -89,7 +89,7 @@ if __name__ == "__main__":
     PARSER.add_argument("--algo", help="(cone|parambath|baseline|ir)", type=str, required=True)
 
     # not required options
-    PARSER.add_argument("--C_grid", help="Tested C", metavar="C",
+    PARSER.add_argument("--C_grid", help="Grid over values of C", metavar="C",
                         type=float, nargs="+", default=[2**exp for exp in range(-6, 7)])
     PARSER.add_argument("--fold_grid", help="Tested folds", metavar="FOLD",
                         type=int, nargs="+", default=list(range(5)))
@@ -98,7 +98,7 @@ if __name__ == "__main__":
     PARSER.add_argument("--classif", help="Classifier (logi_reg|linear_svm|SVC_(linear|poly|rbf|sigmoid)|random_forest)",
                         type=str, default="linear_svm")
     PARSER.add_argument("--save_predictions", action='store_true',
-                        help="Save all predictions (required for thresholding, warning: results from large dataset can be heavy)")
+                        help="Enable saving all predictions (required for thresholding, warning: results from large dataset can be heavy)")
 
     # algo-specific options
     PARSER.add_argument("--tmin", help="if algo is cone or parambath: inf bound of t space",
