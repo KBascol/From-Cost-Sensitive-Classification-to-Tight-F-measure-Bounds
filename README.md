@@ -1,6 +1,7 @@
 # From Cost-Sensitive Classification to Tight F-measure Bounds
 
 ### BibTeX
+
 ```
 @inproceedings{bascol2019fmeasure,
   TITLE = {{From Cost-Sensitive Classification to Tight F-measure Bounds}},
@@ -16,6 +17,7 @@
 ```
 
 ### Code usage
+
 ```
 python3 experiment.py [-h] --dataset DATASET --log_dir LOG_DIR --algo ALGO
                       [--C_grid C [C ...]] [--fold_grid FOLD [FOLD ...]]
@@ -28,13 +30,21 @@ python3 experiment.py [-h] --dataset DATASET --log_dir LOG_DIR --algo ALGO
                       [--nb_features NB_FEATURES]
 ```
 
-#### arguments:
+#### Arguments:
+
+##### Required
+
   `--dataset DATASET`     Dataset file
+  
   `--log_dir LOG_DIR`     Logs directory
+  
   `--algo ALGO`           (cone|parambath|baseline|ir)
 
 
+#### Optional
+
   `-h, --help`            show help message and exit
+  
   `--C_grid C [C ...]`    Grid over values of C
                         `default: [2^{-6}, 2^{-5}, ..., 2^{6}]`
 
